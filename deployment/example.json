@@ -5,7 +5,7 @@
   "database": "DEV_DBT_PRJ",
   "object_schema": "PROJECTS",
   "project": "NATIVE_DBT_EXAMPLE",
-  "role": "DBT_DEPLOYER",
+  "role": "DBT_OPERATOR",
   "warehouse": "COMPUTE_WH",
   "model_database": "DEV_DBT_PRJ",
   "model_schema": "ANALYTICS",
@@ -13,6 +13,10 @@
   "target": "dev",
   "dbt_version": "2.0.0-preview.210",
   "external_access_integrations": [],
-  "auto_compile": true,
-  "default_writeback": false
+  "auto_compile": false,
+  "default_writeback": false,
+  "deployment_role": "DBT_PROJECT_ADMIN",
+  "deployment_connection": null,
+  "operator_user": "DBT_OPERATOR_SVC",
+  "deployment_user": "DBT_PROJECT_ADMIN_SVC"
 }

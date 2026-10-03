@@ -1,37 +1,37 @@
 # dbtsnow
 
-Deploy a native Snowflake `DBT PROJECT` with a setup wizard and GitHub Actions. The wizard asks for the database and execution context; deployment verifies the uploaded source before an optional model build.
+Deploy native Snowflake `DBT PROJECT` objects with separate responsibilities for platform administration, project administration, and daily operation.
 
-## Start with the example
+| Your responsibility | Start here | Code and job |
+| --- | --- | --- |
+| Snowflake administrator: databases, schemas, roles, identities, and grants | [Administrator setup](docs/how-to/admin-setup.md) | `scripts/dbt_admin.py`; run with your approved administrative connection |
+| Project administrator: deploy reviewed source, own the project, and hand it to operators | [Deploy and grant project access](docs/how-to/project-admin.md) | `scripts/dbt_native.py deploy` / `project-access`; GitHub `deploy.yml` |
+| Operator: compile, build, retry, check freshness, and inspect runs | [Run and retry](docs/how-to/run-and-retry.md) · [Inspect runs](docs/how-to/inspect-runs.md) | `scripts/dbt_native.py run`; GitHub `operate.yml` |
 
-From this repository directory, preview the included project:
+The project administrator and operator use two independent custom roles. They do not need `ACCOUNTADMIN` for their routine work. [Understand the separation](docs/explanation/role-separation.md).
+
+## Try the example
 
 ```sh
 uv sync --frozen
 uv run python scripts/dbt_native.py deploy --config deployment/example.json
 ```
 
-The preview makes no Snowflake connection. For prerequisites, wizard prompts, real deployment, and the expected model result, follow [Deploy your first project](docs/tutorials/first-deployment.md).
+This preview makes no Snowflake connection. [Deploy your first project](docs/tutorials/first-deployment.md) walks through the administrator handoff, two dedicated test users, source deployment, and an operator build.
 
 ## Find what you need
 
 | Goal | Documentation |
 | --- | --- |
+| Prepare corporate access | [Administrator setup](docs/how-to/admin-setup.md) · [Role responsibilities](docs/explanation/role-separation.md) |
 | Learn with a small example | [Preview](docs/tutorials/preview-the-example.md) · [First deployment](docs/tutorials/first-deployment.md) |
-| Deploy from GitHub | [GitHub Actions and OIDC](docs/how-to/github-actions.md) |
-| Update an existing numbered object | [Migrate to LIVE](docs/how-to/migrate-to-live.md) |
+| Deploy or operate from GitHub | [Two workflows and OIDC identities](docs/how-to/github-actions.md) |
+| Migrate an existing numbered object | [Migrate to LIVE](docs/how-to/migrate-to-live.md) |
 | Execute or recover a run | [Build and retry](docs/how-to/run-and-retry.md) · [Logs](docs/how-to/inspect-runs.md) |
-| Compare source with a baseline | [State builds](docs/how-to/state-build.md) |
-| Check source data age | [Source freshness](docs/how-to/check-source-freshness.md) |
-| Look up an option | [Configuration](docs/reference/configuration.md) · [Commands](docs/reference/commands.md) |
-| Give an agent repository context | [Agent skills](docs/how-to/use-agent-skills.md) |
+| Compare source or check source age | [State builds](docs/how-to/state-build.md) · [Source freshness](docs/how-to/check-source-freshness.md) |
+| Look up a setting or option | [Configuration](docs/reference/configuration.md) · [Commands](docs/reference/commands.md) |
+| Give an agent repository context | [Four repository skills](docs/how-to/use-agent-skills.md) |
 
-The [documentation home](docs/index.md) separates tutorials, how-to guides, reference, and explanation. See the [screenshot walkthrough](docs/screenshots/README.md) and [validation evidence](docs/validation.md) for real trial results.
+[Documentation](docs/index.md) follows Diátaxis. [Earlier screenshots](docs/screenshots/README.md) record the original single-role setup; [validation evidence](docs/validation.md) distinguishes those results from the role-split checks.
 
-## Deployment approach
-
-Snowflake CLI with GitHub Actions and OIDC is the recommended path. SQL and Snowsight also support native deployment; DCM's documented entity list does not include `DBT PROJECT`. [Read the comparison](docs/explanation/deployment-choice.md).
-
-The template supports LIVE objects and explicit legacy migration. The object destination and model destination are separate settings. Builds write model relations; rollback requires redeploying known source and does not restore those relations. [Understand LIVE](docs/explanation/live-version.md).
-
-Pinned defaults: Snowflake CLI **3.28.0**, dbt Fusion **2.0.0-preview.210**. Core **1.11.11** is also offered. Account runtime availability is checked before applying. See [supported project files and limits](docs/reference/configuration.md#uploaded-files-and-limits).
+Snowflake CLI **3.28.0** uploads and verifies source. Native runtime availability is checked before applying; see [configuration](docs/reference/configuration.md). New source replaces all LIVE files, including retry artifacts. Existing single-role configurations remain supported; adopting separate roles is an explicit setup change.

@@ -267,6 +267,7 @@ class NativeDeploymentTests(unittest.TestCase):
                                 "ORGANIZATION": "org",
                                 "ACCOUNT": identity_account,
                                 "ROLE": "TRANSFORMER",
+                                "SECONDARY_ROLES": json.dumps({"roles": "", "value": "NONE"}),
                             }
                         ]
                     )
@@ -288,6 +289,7 @@ class NativeDeploymentTests(unittest.TestCase):
                             [
                                 {
                                     "name": "TINY",
+                                    "owner": "TRANSFORMER",
                                     "default_version": "LIVE" if existing_live else "VERSION$1",
                                 }
                             ]

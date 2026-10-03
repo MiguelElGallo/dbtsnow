@@ -1,5 +1,7 @@
 # Validation
 
+The sections below record the earlier single-role implementation on **2026-10-03**. For the corporate role change, see [role-split validation](role-split-validation.md) and [two-pass review](role-split-review.md). Historical test counts and trial identities below do not establish acceptance of the separated roles.
+
 Validated on **2026-10-03**. Research and the implementation plan were reviewed independently before coding; separate implementation and test reviews followed.
 
 ## Local checks

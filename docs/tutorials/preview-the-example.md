@@ -32,15 +32,19 @@ The project builds this query as a view. `example/models/schema.yml` adds two te
 uv run python scripts/dbt_native.py deploy --config deployment/example.json
 ```
 
-You should see these entries in the plan:
+Confirm these entries in the plan:
 
-```text
-Account: MYORG-MYACCOUNT; role: DBT_DEPLOYER; warehouse: COMPUTE_WH
-DBT PROJECT: DEV_DBT_PRJ.PROJECTS.NATIVE_DBT_EXAMPLE
-Model target: DEV_DBT_PRJ.ANALYTICS; profile/target: native_dbt_example/dev
-Runtime: 2.0.0-preview.210; automatic compile: True; force replacement: disabled
-Default artifact writeback: False; object version: LIVE
-```
+| Entry | Example value |
+| --- | --- |
+| Account | `MYORG-MYACCOUNT`, an offline placeholder |
+| Project administrator role | `DBT_PROJECT_ADMIN` |
+| Operator/profile role | `DBT_OPERATOR` |
+| Native project | `DEV_DBT_PRJ.PROJECTS.NATIVE_DBT_EXAMPLE` |
+| Model destination | `DEV_DBT_PRJ.ANALYTICS` |
+| Profile / target | `native_dbt_example` / `dev` |
+| Automatic compilation / default writeback | Both disabled |
+
+The separate expected users are placeholders for dedicated project-admin/operator identities. They do not authenticate during this preview. The runtime shown comes from the pinned sample configuration; force replacement remains disabled.
 
 The upload list contains the project, its model and tests, a generated native profile, and a deployment receipt. The final line confirms this is a dry run.
 

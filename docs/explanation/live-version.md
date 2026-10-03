@@ -12,11 +12,11 @@ The template checks `default_version = LIVE`. Deprecated version-name and alias 
 
 ## Compilation and writeback solve different problems
 
-`auto_compile` controls deployment-time compilation. With an external access integration, the CLI also runs `deps` before compiling. Setting it to false skips those deployment-time commands. It does not request a model build.
+`auto_compile` controls deployment-time compilation. With an external access integration, the CLI also runs `deps` before compiling. Setting it to false skips those deployment-time commands. Separate project-admin/operator roles require this setting, so compilation happens later through the operator identity. It does not request a model build.
 
 `default_writeback` controls whether execution artifacts such as `target/` and logs are written into LIVE. This template defaults to **false**, preserving its earlier behavior; Snowflake's native default is **true**. A per-run flag overrides the template's setting. Per-query artifact archives remain available independently of writeback. [Deployment controls](https://docs.snowflake.com/en/developer-guide/snowflake-cli/command-reference/dbt-commands/deploy), [LIVE artifacts](https://docs.snowflake.com/en/user-guide/data-engineering/dbt-projects-on-snowflake-live-version).
 
-Persisted failed-run artifacts enable retry. Successful build/run artifacts provide baseline state for comparisons. Automatic compilation alone is not a qualifying baseline. Shared writeback paths can be overwritten by another execution; serialize runs that depend on that state.
+Persisted failed-run artifacts enable retry. Successful build/run artifacts provide baseline state for comparisons. Automatic compilation alone is not a qualifying baseline. Shared writeback paths can be overwritten by another execution; serialize runs and deployments that depend on that state. The two GitHub jobs share a concurrency group, while local callers must coordinate their own access.
 
 ## Deployment replaces files
 

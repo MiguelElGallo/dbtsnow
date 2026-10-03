@@ -1,12 +1,12 @@
-# Build models changed from a baseline
+# Operator: build models changed from a baseline
 
 [Documentation](../index.md)
 
-Use a separate native CI project and model schema to compare checked-out source with a successful baseline. State comparison decides which nodes changed; `--defer` lets unchanged upstream references use baseline relations.
+Use the operator identity for a separate native CI project and writable model schema to compare checked-out source with a successful baseline. The administrator prepares the schema/access, and the project administrator deploys the CI object first. State comparison decides which nodes changed; `--defer` lets unchanged upstream references use baseline relations.
 
 ## Prepare the baseline and permissions
 
-This development example uses baseline `DEV_DBT_PRJ.PROJECTS.NATIVE_DBT_EXAMPLE` from the [first-deployment tutorial](../tutorials/first-deployment.md). Replace it with your own baseline for a real project.
+This development example uses baseline `DBT_CORPORATE_DEV.PROJECTS.NATIVE_DBT_EXAMPLE` from the [first-deployment tutorial](../tutorials/first-deployment.md). Replace it with your own baseline for a real project.
 
 The baseline needs a successful `build` or `run` with populated artifacts in the last seven days. Deployment-time compilation does not qualify. Refresh the example baseline with:
 
@@ -16,59 +16,35 @@ uv run python scripts/dbt_native.py run --config deployment/dev.json --command b
 
 The executing role needs `MONITOR` on a baseline it does not own, plus access to the native CI object and its writable model destination. Deferral also needs `USAGE` on the baseline model database/schema and `SELECT` on relations used by unchanged references. Grant access only to the relevant sources and relations. [Snowflake state/deferral guide](https://docs.snowflake.com/en/user-guide/data-engineering/dbt-projects-on-snowflake-slim-ci-defer-to-prod).
 
-For this example, ask an administrator to prepare the separate model schema:
+Have the Snowflake administrator prepare `CI_ANALYTICS` and the operator's model privileges through [administrator setup](admin-setup.md#add-project-specific-data-access). Different baseline/CI operator roles need explicit baseline parent access, `MONITOR`, and relation reads. Do not grant deployment ownership merely to retrieve state.
 
-```sql
-CREATE SCHEMA IF NOT EXISTS DEV_DBT_PRJ.CI_ANALYTICS;
-GRANT USAGE ON SCHEMA DEV_DBT_PRJ.CI_ANALYTICS TO ROLE DEV_DBT_PRJ_DEPLOYER;
-GRANT CREATE TABLE, CREATE VIEW ON SCHEMA DEV_DBT_PRJ.CI_ANALYTICS TO ROLE DEV_DBT_PRJ_DEPLOYER;
-```
+## Project administrator: create and deploy the CI configuration
 
-The tutorial role already owns the baseline and its example view. Different baseline and CI roles need the explicit read grants described above.
-
-## Create the CI configuration
-
-```sh
-uv run python scripts/dbt_native.py wizard \
-  --source example \
-  --output deployment/ci.json \
-  --database DEV_DBT_PRJ \
-  --object-schema PROJECTS \
-  --project NATIVE_DBT_CI \
-  --role DEV_DBT_PRJ_DEPLOYER \
-  --model-database DEV_DBT_PRJ \
-  --model-schema CI_ANALYTICS \
-  --no-auto-compile \
-  --no-default-writeback
-```
-
-Answer the account, connection, warehouse, and remaining prompts. Keep `native_dbt_example` as the profile and `dev` as the target. Review every proposed value, particularly the separate model schema. String flags supply editable wizard suggestions; explicit boolean flags apply directly without another prompt.
-
-`auto_compile: false` skips full compilation during deployment, leaving the selected state-based run to do its work.
-
-## Deploy the CI object
+Make a separate local configuration for the same approved account and identities. Change `project` to `NATIVE_DBT_CI` and `model_schema` to `CI_ANALYTICS`; preserve `deployment_role`, the operator `role`, both connections, and expected usernames. Set `auto_compile: false` and `default_writeback: false`. Store it at `deployment/ci.json`, choosing a new filename if it already exists.
 
 ```sh
 uv run python scripts/dbt_native.py deploy --config deployment/ci.json
 uv run python scripts/dbt_native.py deploy --config deployment/ci.json --apply
+uv run python scripts/dbt_native.py project-access --config deployment/ci.json
+uv run python scripts/dbt_native.py project-access --config deployment/ci.json --apply
 ```
 
-Confirm the object is `DEV_DBT_PRJ.PROJECTS.NATIVE_DBT_CI` and the model destination is `DEV_DBT_PRJ.CI_ANALYTICS` before applying.
+Review native object `DBT_CORPORATE_DEV.PROJECTS.NATIVE_DBT_CI` and model destination `DBT_CORPORATE_DEV.CI_ANALYTICS`, replacing these example names with the selected configuration. The project administrator deploys without compilation and grants only this CI object's operator access.
 
-## Run with baseline state
+## Operator: run with baseline state
 
 ```sh
 uv run python scripts/dbt_native.py run \
   --config deployment/ci.json \
   --command build \
-  --state-from DEV_DBT_PRJ.PROJECTS.NATIVE_DBT_EXAMPLE \
+  --state-from DBT_CORPORATE_DEV.PROJECTS.NATIVE_DBT_EXAMPLE \
   --select state:modified+ \
   --defer \
   --no-writeback
 uv run python scripts/dbt_native.py run \
   --config deployment/ci.json \
   --command build \
-  --state-from DEV_DBT_PRJ.PROJECTS.NATIVE_DBT_EXAMPLE \
+  --state-from DBT_CORPORATE_DEV.PROJECTS.NATIVE_DBT_EXAMPLE \
   --select state:modified+ \
   --defer \
   --no-writeback \
@@ -79,4 +55,4 @@ The wrapper resolves the last successful build/run target, freezes that artifact
 
 If no model source changed, expect no selected nodes. After a model change and another CI deployment, expect the changed model and its dependent nodes to run. State selection does not guarantee a fully populated CI schema; deferral can still read baseline relations.
 
-For GitHub, commit a reviewed configuration for this CI destination as `deployment/dev.json`, then enable **build**, set **state_from** and **select**, and optionally **defer** in the [deployment workflow](github-actions.md). The workflow always reads `deployment/dev.json`; `deployment/ci.json` is the local example.
+For GitHub, commit the reviewed CI destination as `deployment/dev.json`, have the project administrator run deployment, then have the operator choose **build**, set **state_from** and **select**, and optionally **defer** in the [operation workflow](github-actions.md#operator-run-the-operation-workflow). Disable writeback for state comparisons. Both workflows read `deployment/dev.json`; `deployment/ci.json` is the local example.

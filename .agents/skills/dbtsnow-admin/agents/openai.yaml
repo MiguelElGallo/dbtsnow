@@ -1,0 +1,3 @@
+interface:
+  display_name: "Administer dbtsnow access"
+  short_description: "Prepare roles, resources, and test-user handoff"

@@ -27,7 +27,7 @@ Preserving the existing object avoids losing its identity and run history. That 
 
 Separate object and model destinations make write scope visible. A credentials-free native profile carries the model context, while the selected CLI connection or OIDC identity supplies authentication. Snowflake prefers `dbt_projects_profiles.yml` over personal `profiles.yml`.
 
-Optional model execution separates delivering source from changing tables and views. Remote packages need an existing external access integration; explicit handling keeps package access and native environment settings from being inferred from a developer's personal secrets.
+Independent project administrator and operator roles separate delivering source from changing tables and views. Corporate deployment disables automatic compilation and uses its own identity; the operator performs compilation/build through a separate job. See [role separation](role-separation.md). Remote packages need an existing external access integration; explicit handling keeps package access and native environment settings from being inferred from a developer's personal secrets.
 
 Sources: [CLI deploy flags](https://docs.snowflake.com/en/developer-guide/snowflake-cli/command-reference/dbt-commands/deploy), [access control](https://docs.snowflake.com/en/user-guide/data-engineering/dbt-projects-on-snowflake-access-control), [DESCRIBE metadata](https://docs.snowflake.com/en/sql-reference/sql/desc-dbt-project), [dependencies](https://docs.snowflake.com/en/user-guide/data-engineering/dbt-projects-on-snowflake-dependencies).
 

@@ -4,7 +4,7 @@ Captured on **3 October 2026**. Snowsight and GitHub images are unedited browser
 
 Project: `DEV_DBT_PRJ.PROJECTS.NATIVE_DBT_EXAMPLE`. Owner: `DEV_DBT_PRJ_DEPLOYER`. Runtime: dbt Fusion `2.0.0-preview.210`.
 
-These captures document the initial implementation and GitHub run at `b2dade2`, before the added compilation/writeback wizard prompts and expanded 68-test suite. Follow the [current tutorial](../tutorials/first-deployment.md) and [validation record](../validation.md) for the latest behavior.
+These captures document the original single-role setup rather than the current administrator/project-admin/operator handoff. The new role setup uses separate identities and disables deployment compilation. These captures document the initial implementation and GitHub run at `b2dade2`, before the added compilation/writeback wizard prompts and expanded 68-test suite. Follow the [current tutorial](../tutorials/first-deployment.md) and [validation record](../validation.md) for the latest behavior.
 
 ## Wizard setup
 

@@ -20,21 +20,32 @@ checkout: its relative links and commands depend on the repository's docs and co
 
 | Skill | Use it for |
 | --- | --- |
-| [`dbtsnow-deploy`](../../.agents/skills/dbtsnow-deploy/SKILL.md) | Wizard configuration, offline previews, native deployment, GitHub setup |
-| [`dbtsnow-operate`](../../.agents/skills/dbtsnow-operate/SKILL.md) | Existing project runs, retry, logs, state, freshness, migration |
+| [`dbtsnow-admin`](../../.agents/skills/dbtsnow-admin/SKILL.md) | Snowflake administrator provisioning, independent roles/users, test-user authentication handoff |
+| [`dbtsnow-deploy`](../../.agents/skills/dbtsnow-deploy/SKILL.md) | Project administrator configuration, source delivery, project-access grants, migration, deployment workflow |
+| [`dbtsnow-operate`](../../.agents/skills/dbtsnow-operate/SKILL.md) | Operator runs, retry, logs, state, freshness, operation workflow |
 | [`dbtsnow-maintain`](../../.agents/skills/dbtsnow-maintain/SKILL.md) | Code navigation, changes, tests, documentation, review |
 
-For a first offline check, give the agent this prompt:
+For administrator setup, supply the selected account/config and administrative connection:
+
+```text
+Use $dbtsnow-admin with deployment/dev.json to preview fresh-resource setup.
+Use my selected snowflake_admin connection and ACCOUNTADMIN role for the planned apply.
+Plan two dedicated test users with separate public keys. Keep this preview offline.
+```
+
+The agent should report the exact resources/role/user/grant scope and retain the administrator-to-project-admin-to-operator handoff. It should not create identities during a preview, inherit one delegated role from the other, or accept a private key as bootstrap input.
+
+For a project administrator's first offline check, give the agent this prompt:
 
 ```text
 Use $dbtsnow-deploy to preview deployment/example.json.
-Show the native object and model destination. Keep this offline.
+Show both delegated roles and the native object/model destination. Keep this offline.
 ```
 
 Expect a deployment plan and an explanation that account permissions and runtime
 availability have not been verified. The placeholder account must not become a real destination.
 
-For an existing project, supply your selected configuration:
+For an operator investigation, supply the selected configuration:
 
 ```text
 Use $dbtsnow-operate with .local/dev.json to investigate my failed build.
@@ -55,7 +66,7 @@ Explain the relevant code, tests, and documentation before changing anything.
 
 Keep instructions short and link the applicable guide. Validate each skill's YAML
 frontmatter and `agents/openai.yaml` metadata with your available skill tooling.
-For deployment or operation changes, have an independent agent try an offline
+For administrator, deployment, or operation changes, have an independent agent try an offline
 preview and a failure case in an isolated checkout. Check its actual commands and
 results, not just whether it repeats the instructions.
 

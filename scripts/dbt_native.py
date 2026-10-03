@@ -26,6 +26,15 @@ DEFAULT_DBT_VERSION = "2.0.0-preview.210"
 IDENTIFIER = re.compile(r"[A-Za-z_][A-Za-z0-9_$]{0,254}\Z")
 LABEL = re.compile(r"[A-Za-z_][A-Za-z0-9_-]*\Z")
 ACCOUNT = re.compile(r"[A-Za-z0-9_]+-[A-Za-z0-9_]+\Z")
+RESERVED_PROJECT_ROLES = {
+    "ACCOUNTADMIN",
+    "SECURITYADMIN",
+    "SYSADMIN",
+    "USERADMIN",
+    "ORGADMIN",
+    "GLOBALORGADMIN",
+    "PUBLIC",
+}
 DIR_SETTINGS = {
     "model-paths": ["models"],
     "macro-paths": ["macros"],
@@ -64,6 +73,30 @@ class Config:
     external_access_integrations: list[str] = field(default_factory=list)
     default_writeback: bool = False
     auto_compile: bool = True
+    deployment_role: str | None = None
+    deployment_connection: str | None = None
+    operator_user: str | None = None
+    deployment_user: str | None = None
+
+    @property
+    def project_admin_role(self) -> str:
+        return self.deployment_role or self.role
+
+    @property
+    def project_admin_connection(self) -> str | None:
+        return self.deployment_connection or self.connection
+
+    @property
+    def project_admin_user(self) -> str | None:
+        if self.deployment_user is not None:
+            return self.deployment_user
+        if not self.split_roles and self.deployment_connection is None:
+            return self.operator_user
+        return None
+
+    @property
+    def split_roles(self) -> bool:
+        return self.project_admin_role.upper() != self.role.upper()
 
     @property
     def object_name(self) -> str:
@@ -104,6 +137,25 @@ def validate_config(config: Config) -> None:
         value = getattr(config, name)
         if not isinstance(value, str) or not IDENTIFIER.fullmatch(value):
             raise DeploymentError(f"{name}: use a simple unquoted Snowflake identifier.")
+    for name in ("deployment_role", "operator_user", "deployment_user"):
+        value = getattr(config, name)
+        if value is not None and (not isinstance(value, str) or not IDENTIFIER.fullmatch(value)):
+            raise DeploymentError(f"{name}: use a simple unquoted Snowflake identifier or null.")
+    if config.split_roles and any(
+        role.upper() in RESERVED_PROJECT_ROLES for role in (config.project_admin_role, config.role)
+    ):
+        raise DeploymentError(
+            "Separate project roles must be new custom roles, not built-in roles."
+        )
+    if (
+        config.split_roles
+        and config.operator_user is not None
+        and config.deployment_user is not None
+        and config.operator_user.upper() == config.deployment_user.upper()
+    ):
+        raise DeploymentError(
+            "Separate project roles require different configured user identities."
+        )
     for name in ("profile", "target"):
         value = getattr(config, name)
         if not isinstance(value, str) or not LABEL.fullmatch(value):
@@ -114,10 +166,10 @@ def validate_config(config: Config) -> None:
         )
     if not isinstance(config.source, str) or not config.source:
         raise DeploymentError("source must name a local dbt project directory.")
-    if config.connection is not None and (
-        not isinstance(config.connection, str) or not LABEL.fullmatch(config.connection)
-    ):
-        raise DeploymentError("connection must be a simple local connection name or null.")
+    for name in ("connection", "deployment_connection"):
+        value = getattr(config, name)
+        if value is not None and (not isinstance(value, str) or not LABEL.fullmatch(value)):
+            raise DeploymentError(f"{name} must be a simple local connection name or null.")
     if not isinstance(config.dbt_version, str) or not re.fullmatch(
         r"\d+\.\d+\.\d+(?:-[A-Za-z0-9.]+)?", config.dbt_version
     ):
@@ -148,6 +200,15 @@ def load_config(path: Path | str) -> Config:
     return config
 
 
+def profile_role(config: Config) -> str:
+    """Use a fixed operator literal to avoid the CLI's deployment-time role switch."""
+    if not config.split_roles:
+        return config.role
+    if not IDENTIFIER.fullmatch(config.role):
+        raise DeploymentError("Operator profile role must be a simple Snowflake identifier.")
+    return "{{ '" + config.role.upper() + "' }}"
+
+
 def native_profile(config: Config) -> dict[str, Any]:
     return {
         config.profile: {
@@ -157,7 +218,7 @@ def native_profile(config: Config) -> dict[str, Any]:
                     "type": "snowflake",
                     "database": config.model_database,
                     "schema": config.model_schema,
-                    "role": config.role,
+                    "role": profile_role(config),
                     "warehouse": config.warehouse,
                 }
             },
@@ -422,6 +483,21 @@ def wizard(args: argparse.Namespace) -> Config:
         if name == "account" and default and not ACCOUNT.fullmatch(default):
             default = ""
         values[name] = ask(name, default, args.non_interactive)
+    for name in ("deployment_role", "deployment_connection", "operator_user", "deployment_user"):
+        value = getattr(args, name, None)
+        if not args.non_interactive:
+            fallback = values["role"] if name == "deployment_role" else ""
+            prompt = {
+                "deployment_role": "project administrator role (same role keeps legacy setup)",
+                "deployment_connection": "project administrator connection (blank reuses operator)",
+                "operator_user": "expected operator user (blank skips user identity check)",
+                "deployment_user": "expected project administrator user (blank uses fallback)",
+            }[name]
+            value = ask(prompt, value or fallback, False)
+        values[name] = value or None
+    split_roles = (
+        str(values.get("deployment_role") or values["role"]).upper() != values["role"].upper()
+    )
     integrations = args.external_access_integration or []
     if not args.non_interactive and not integrations:
         response = ask(
@@ -429,7 +505,7 @@ def wizard(args: argparse.Namespace) -> Config:
         )
         integrations = [item.strip() for item in response.split(",") if item.strip()]
     values["external_access_integrations"] = integrations
-    for name, fallback in (("default_writeback", False), ("auto_compile", True)):
+    for name, fallback in (("default_writeback", False), ("auto_compile", not split_roles)):
         setting = getattr(args, name, None)
         if setting is None and not args.non_interactive:
             if name == "default_writeback":
@@ -443,6 +519,7 @@ def wizard(args: argparse.Namespace) -> Config:
             setting = response in ("yes", "y")
         values[name] = fallback if setting is None else setting
     config = Config(**values)
+    validate_deployment(config)
     with tempfile.TemporaryDirectory(prefix="dbtsnow-plan-") as temp:
         uploaded = prepare_source(config, Path(temp) / "source")
     output = Path(args.output).expanduser().resolve()
@@ -489,11 +566,11 @@ def sql_rows(query: str, options: list[str]) -> list[dict[str, Any]]:
     return json_rows(run_command(["snow", "sql", "--query", query, "--format", "JSON", *options]))
 
 
-def connection_options(config: Config, temporary: bool) -> list[str]:
+def connection_options(config: Config, temporary: bool, *, deployment: bool = False) -> list[str]:
+    connection = config.project_admin_connection if deployment else config.connection
+    role = config.project_admin_role if deployment else config.role
     auth = (
-        ["--temporary-connection"]
-        if temporary or not config.connection
-        else ["--connection", config.connection]
+        ["--temporary-connection"] if temporary or not connection else ["--connection", connection]
     )
     return [
         *auth,
@@ -504,10 +581,23 @@ def connection_options(config: Config, temporary: bool) -> list[str]:
         "--schema",
         config.object_schema,
         "--role",
-        config.role,
+        role,
         "--warehouse",
         config.warehouse,
+        "--secondary-roles",
+        "NONE",
     ]
+
+
+def show_identity(config: Config, *, deployment: bool = False) -> None:
+    label = "Project administrator" if deployment else "Operator"
+    role = config.project_admin_role if deployment else config.role
+    connection = config.project_admin_connection if deployment else config.connection
+    user = config.project_admin_user if deployment else config.operator_user
+    print(
+        f"{label} identity: role {role}; connection {connection or 'runtime'}; "
+        f"expected user {user or 'unspecified'}"
+    )
 
 
 def github_metadata(source: Path) -> dict[str, str]:
@@ -529,24 +619,38 @@ def github_metadata(source: Path) -> dict[str, str]:
     return metadata
 
 
-def check_session(config: Config, options: list[str]) -> None:
+def check_session(config: Config, options: list[str], *, deployment: bool = False) -> None:
     version = run_command(["snow", "--version"])
     if not re.search(rf"(?<![\d.]){re.escape(CLI_VERSION)}(?![\d.])", version):
         raise DeploymentError(f"Install pinned Snowflake CLI {CLI_VERSION} before applying.")
     identity = sql_rows(
         "SELECT CURRENT_ORGANIZATION_NAME() AS organization, "
-        "CURRENT_ACCOUNT_NAME() AS account, CURRENT_ROLE() AS role",
+        "CURRENT_ACCOUNT_NAME() AS account, CURRENT_ROLE() AS role, CURRENT_USER() AS user, "
+        "CURRENT_SECONDARY_ROLES() AS secondary_roles",
         options,
     )
     if len(identity) != 1:
         raise DeploymentError("Cannot verify Snowflake session identity.")
     row = identity[0]
     actual = f"{row.get('organization', '')}-{row.get('account', '')}"
-    if (
-        actual.upper() != config.account.upper()
-        or str(row.get("role", "")).upper() != config.role.upper()
-    ):
+    role = config.project_admin_role if deployment else config.role
+    user = config.project_admin_user if deployment else config.operator_user
+    if actual.upper() != config.account.upper() or str(row.get("role", "")).upper() != role.upper():
         raise DeploymentError("Authenticated account or role does not match the deployment config.")
+    if user is not None and str(row.get("user", "")).upper() != user.upper():
+        raise DeploymentError("Authenticated user does not match the configured identity.")
+    secondary = row.get("secondary_roles")
+    if isinstance(secondary, str):
+        try:
+            secondary = json.loads(secondary)
+        except json.JSONDecodeError as exc:
+            raise DeploymentError("Cannot verify disabled secondary roles.") from exc
+    if (
+        not isinstance(secondary, dict)
+        or secondary.get("value") not in ("", "NONE")
+        or secondary.get("roles") != ""
+    ):
+        raise DeploymentError("Secondary roles must be disabled for this operation.")
 
 
 def project_row(config: Config, options: list[str]) -> dict[str, Any] | None:
@@ -573,8 +677,29 @@ def confirm_live(row: dict[str, Any]) -> None:
             raise DeploymentError("LIVE object location does not use /versions/live/.")
 
 
-def preflight(config: Config, options: list[str]) -> dict[str, Any] | None:
-    check_session(config, options)
+def require_project_owner(config: Config, row: dict[str, Any]) -> None:
+    if str(row.get("owner", "")).upper() != config.project_admin_role.upper():
+        raise DeploymentError(
+            "Project ownership does not match the configured project administrator role."
+        )
+
+
+def validate_deployment(config: Config, *, build: bool = False) -> None:
+    validate_config(config)
+    if config.split_roles and config.auto_compile:
+        raise DeploymentError(
+            "Separate project roles require auto_compile: false; compile as the operator."
+        )
+    if config.split_roles and build:
+        raise DeploymentError(
+            "Separate project roles require a separate run command using the operator identity."
+        )
+
+
+def preflight(
+    config: Config, options: list[str], *, deployment: bool = False
+) -> dict[str, Any] | None:
+    check_session(config, options, deployment=deployment)
     supported = sql_rows("SELECT SYSTEM$SUPPORTED_DBT_VERSIONS() AS versions", options)
     if len(supported) != 1:
         raise DeploymentError("Cannot verify supported dbt runtimes.")
@@ -592,24 +717,31 @@ def preflight(config: Config, options: list[str]) -> dict[str, Any] | None:
     existing = project_row(config, options)
     if existing is not None:
         confirm_live(existing)
+        if deployment:
+            require_project_owner(config, existing)
     return existing
 
 
 def migrate(config: Config, *, apply: bool = False, temporary_connection: bool = False) -> None:
     validate_config(config)
     query = f"SELECT SYSTEM$MIGRATE_DBT_PROJECT('{config.object_name}')"
-    print(f"Migration destination: {config.account}, role {config.role}, {config.object_name}")
+    print(
+        f"Migration destination: {config.account}, role {config.project_admin_role}, "
+        f"{config.object_name}"
+    )
+    show_identity(config, deployment=True)
     print("Migration preserves object identity, grants, task references, and execution history.")
     print("Numbered source versions become inaccessible. Save needed versions before applying.")
     print(query)
     if not apply:
         print("Dry run: no Snowflake connection or migration. Add --apply to migrate this object.")
         return
-    options = connection_options(config, temporary_connection)
-    check_session(config, options)
+    options = connection_options(config, temporary_connection, deployment=True)
+    check_session(config, options, deployment=True)
     before = project_row(config, options)
     if before is None:
         raise DeploymentError("Migration target does not exist or is not visible to this role.")
+    require_project_owner(config, before)
     if str(before.get("default_version", "")).upper() == "LIVE":
         confirm_live(before)
         print("Already LIVE; no migration performed.")
@@ -718,10 +850,16 @@ def verify_execution_target(config: Config, options: list[str], command: str) ->
         for field_name, expected in (
             ("database", config.model_database),
             ("schema", config.model_schema),
-            ("role", config.role),
+            ("role", profile_role(config)),
             ("warehouse", config.warehouse),
         ):
-            if literal(target.get(field_name)).upper() != expected.upper():
+            actual = target.get(field_name)
+            matches = (
+                actual == expected
+                if field_name == "role" and config.split_roles
+                else literal(actual).upper() == expected.upper()
+            )
+            if not matches:
                 raise DeploymentError(
                     f"Deployed model target {field_name} differs from the config."
                 )
@@ -775,6 +913,7 @@ def execute_project(
         f"Execution destination: {config.account}, {config.object_name}; "
         f"model target {config.model_database}.{config.model_schema}"
     )
+    show_identity(config)
     object_index = invocation.index(config.object_name)
     print(f"dbt command: {shlex.join(invocation[object_index + 1 :])}")
     print(f"Artifact writeback: {config.default_writeback if writeback is None else writeback}")
@@ -811,7 +950,20 @@ def execute_project(
 
 
 def show_plan(config: Config, uploaded: list[str]) -> None:
-    print(f"Account: {config.account}; role: {config.role}; warehouse: {config.warehouse}")
+    print(
+        f"Account: {config.account}; project administrator role: {config.project_admin_role}; "
+        f"warehouse: {config.warehouse}"
+    )
+    print(f"Operator/profile role: {config.role}")
+    print(
+        f"Project administrator connection: {config.project_admin_connection or 'temporary'}; "
+        f"operator connection: {config.connection or 'temporary'}"
+    )
+    if config.project_admin_user or config.operator_user:
+        print(
+            f"Expected project administrator user: {config.project_admin_user or 'unspecified'}; "
+            f"operator user: {config.operator_user or 'unspecified'}"
+        )
     print(f"DBT PROJECT: {config.object_name}")
     print(
         f"Model target: {config.model_database}.{config.model_schema}; "
@@ -829,7 +981,8 @@ def verify_readback(config: Config, rows: list[dict[str, Any]], metadata: dict[s
     if len(rows) != 1:
         raise DeploymentError("Deployment returned no unique DBT PROJECT description.")
     row = rows[0]
-    for key, expected_value in (("name", config.project), ("owner", config.role)):
+    require_project_owner(config, row)
+    for key, expected_value in (("name", config.project), ("owner", config.project_admin_role)):
         if key in row and str(row[key]).upper() != expected_value.upper():
             raise DeploymentError(f"Deployment readback {key} does not match the config.")
     expected = {"dbt_version": config.dbt_version, "default_target": config.target}
@@ -903,6 +1056,7 @@ def verify_source(prepared: Path, downloaded: Path, receipt: dict[str, Any]) -> 
 def deploy(
     config: Config, *, apply: bool = False, build: bool = False, temporary_connection: bool = False
 ) -> None:
+    validate_deployment(config, build=build)
     with tempfile.TemporaryDirectory(prefix="dbtsnow-deploy-") as temp:
         prepared = Path(temp) / "source"
         uploaded = prepare_source(config, prepared)
@@ -917,10 +1071,10 @@ def deploy(
         if not apply:
             print("Dry run: no Snowflake connection or cloud writes. Add --apply to deploy.")
             return
-        options = connection_options(config, temporary_connection)
+        options = connection_options(config, temporary_connection, deployment=True)
         metadata = github_metadata(source_directory(config))
         receipt = write_receipt(config, prepared, uploaded, metadata)
-        preflight(config, options)
+        preflight(config, options, deployment=True)
         command = [
             "snow",
             "dbt",
@@ -973,6 +1127,42 @@ def deploy(
             print("dbt build completed successfully.")
 
 
+def project_access(
+    config: Config, *, apply: bool = False, temporary_connection: bool = False
+) -> None:
+    """Hand one existing project to its operator without account-level grants."""
+    validate_config(config)
+    query = f"GRANT USAGE, MONITOR ON DBT PROJECT {config.object_name} TO ROLE {config.role}"
+    print(
+        f"Project access: {config.account}, project administrator role {config.project_admin_role}"
+    )
+    show_identity(config, deployment=True)
+    print(query)
+    print("In a managed access schema, its owner or grant administrator must apply these grants.")
+    if not apply:
+        print("Dry run: no Snowflake connection or grants. Add --apply to grant project access.")
+        return
+    options = connection_options(config, temporary_connection, deployment=True)
+    check_session(config, options, deployment=True)
+    existing = project_row(config, options)
+    if existing is None:
+        raise DeploymentError("Access target does not exist or is not visible to this role.")
+    require_project_owner(config, existing)
+    sql_rows(query, options)
+    grants = sql_rows(f"SHOW GRANTS ON DBT PROJECT {config.object_name}", options)
+    privileges = {
+        str(row.get("privilege", "")).upper()
+        for row in grants
+        if str(row.get("granted_to", "")).upper() == "ROLE"
+        and str(row.get("granted_on", "")).upper().replace("_", " ") == "DBT PROJECT"
+        and str(row.get("grantee_name", "")).upper() == config.role.upper()
+        and str(row.get("name", "")).upper() == config.object_name.upper()
+    }
+    if not {"USAGE", "MONITOR"}.issubset(privileges):
+        raise DeploymentError("Project access readback did not confirm both exact-object grants.")
+    print(f"Verified project access: {config.role} has USAGE and MONITOR on {config.object_name}.")
+
+
 def parser() -> argparse.ArgumentParser:
     root = argparse.ArgumentParser(description=__doc__)
     commands = root.add_subparsers(dest="command", required=True)
@@ -982,6 +1172,10 @@ def parser() -> argparse.ArgumentParser:
     )
     setup.add_argument("--source", default="example")
     setup.add_argument("--connection")
+    setup.add_argument("--deployment-connection")
+    setup.add_argument("--deployment-role")
+    setup.add_argument("--operator-user")
+    setup.add_argument("--deployment-user")
     setup.add_argument("--output", default="deployment/dev.json")
     setup.add_argument("--non-interactive", action="store_true")
     for name in (
@@ -1009,7 +1203,7 @@ def parser() -> argparse.ArgumentParser:
         "--auto-compile",
         action=argparse.BooleanOptionalAction,
         default=None,
-        help="Compile during deployment (default: enabled).",
+        help="Compile during deployment (default: disabled with separate roles).",
     )
     apply = commands.add_parser(
         "deploy", help="Show a local plan; --apply explicitly enables deployment."
@@ -1032,7 +1226,11 @@ def parser() -> argparse.ArgumentParser:
     execution = commands.add_parser(
         "run", help="Execute a deployed LIVE project without redeploying its files."
     )
-    for operation in (migration, execution):
+    access = commands.add_parser(
+        "project-access",
+        help="Preview or grant operator USAGE and MONITOR on one existing project.",
+    )
+    for operation in (migration, execution, access):
         operation.add_argument("--config", required=True)
         operation.add_argument("--apply", action="store_true")
         operation.add_argument("--temporary-connection", action="store_true")
@@ -1061,6 +1259,12 @@ def main(argv: list[str] | None = None) -> int:
             wizard(args)
         elif args.command == "migrate":
             migrate(
+                load_config(args.config),
+                apply=args.apply,
+                temporary_connection=args.temporary_connection,
+            )
+        elif args.command == "project-access":
+            project_access(
                 load_config(args.config),
                 apply=args.apply,
                 temporary_connection=args.temporary_connection,

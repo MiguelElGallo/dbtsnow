@@ -1,10 +1,10 @@
-# Check source freshness
+# Operator: check source freshness
 
 Check whether a source table was loaded recently, and fail the run when it exceeds your threshold. [Documentation home](../index.md) · [LIVE and artifacts](../explanation/live-version.md).
 
 ## Prepare a source
 
-Use a deployed LIVE project and a saved configuration such as `deployment/dev.json`. The configured role needs warehouse access, `USAGE` on the source database/schema, and `SELECT` on the source table. Creating the optional demonstration table also requires `CREATE TABLE` on its schema. Use your configured role and destinations; these examples assume `DEV_DBT_PRJ.ANALYTICS`.
+Use the operator connection with a deployed LIVE project and a saved configuration such as `deployment/dev.json`. The operator role needs warehouse access, `USAGE` on the source database/schema, and `SELECT` on the source table. Creating the optional demonstration table also requires `CREATE TABLE` on its schema. Use your configured role and destinations; these examples assume `DEV_DBT_PRJ.ANALYTICS`.
 
 An authorized role can create this demonstration source:
 
@@ -21,18 +21,11 @@ WHERE NOT EXISTS (
 );
 ```
 
-If another role owns the source, its owner or administrator grants access. Replace `<YOUR_DBT_ROLE>` with the role in your configuration:
-
-```sql
-GRANT USAGE ON DATABASE DEV_DBT_PRJ TO ROLE <YOUR_DBT_ROLE>;
-GRANT USAGE ON SCHEMA DEV_DBT_PRJ.ANALYTICS TO ROLE <YOUR_DBT_ROLE>;
-GRANT SELECT ON TABLE DEV_DBT_PRJ.ANALYTICS.FRESHNESS_CONTROL
-  TO ROLE <YOUR_DBT_ROLE>;
-```
+If another role owns the source, have its owner/platform administrator provision targeted reads through [administrator setup](admin-setup.md#add-project-specific-data-access). The operator should not switch to an administrator role to grant itself access.
 
 Fusion treats timezone-free `TIMESTAMP_NTZ` values as UTC. Casting a session-local `CURRENT_TIMESTAMP()` directly to NTZ can make fresh data appear stale; the example converts to UTC first.
 
-## Declare and deploy the source
+## Project administrator: declare and deploy the source
 
 Add `models/sources.yml` inside your configured source directory (`example/` in the tutorial):
 
@@ -52,7 +45,7 @@ sources:
         identifier: FRESHNESS_CONTROL
 ```
 
-This layout works with the pinned Fusion and Core runtimes. Commit source changes before authenticated GitHub deployment. Deploy the updated source definition:
+This layout works with the pinned Fusion and Core runtimes. Have the project administrator review and deploy the updated source definition through its own connection. Commit source changes before authenticated GitHub deployment:
 
 ```sh
 uv run python scripts/dbt_native.py deploy --config deployment/dev.json
@@ -61,7 +54,7 @@ uv run python scripts/dbt_native.py deploy --config deployment/dev.json --apply
 
 Source changes need redeployment. Deployment replaces LIVE files, so finish any pending retry first; retry requires its prior run artifacts.
 
-## Run and inspect
+## Operator: run and inspect
 
 ```sh
 uv run python scripts/dbt_native.py run --config deployment/dev.json --command source-freshness

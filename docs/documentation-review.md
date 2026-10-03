@@ -2,6 +2,8 @@
 
 [Documentation](index.md) · [Implementation and live validation](validation.md)
 
+This record covers the earlier documentation. The corporate-role rewrite has its own [two-pass review](role-split-review.md) and [validation record](role-split-validation.md); counts and findings below are historical.
+
 Reviewed on **2026-10-03** against [Diátaxis](https://diataxis.fr/start-here/) and [FastAPI's tutorial style](https://fastapi.tiangolo.com/tutorial/first-steps/).
 
 ## Independent passes

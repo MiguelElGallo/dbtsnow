@@ -1,8 +1,8 @@
-# Run a project and retry a failed build
+# Operator: run a project and retry a failed build
 
 [Documentation](../index.md)
 
-Use a saved configuration for an already deployed LIVE object. The wrapper checks its runtime, project profile, and model destination before execution.
+Use the operator's own authenticated connection and a saved configuration for an already deployed LIVE object. `role`, `connection`, and optional `operator_user` select this identity. The project administrator has completed [project access](project-admin.md#grant-operator-access), and the platform administrator has provisioned model/source privileges. The wrapper checks operator identity, runtime, project profile, and model destination before execution.
 
 ## Run a build
 
@@ -22,7 +22,7 @@ For compilation alone, use `--command compile`. To check source age, follow [sou
 Follow these steps only if the previous build **failed** after recording runnable nodes:
 
 1. Use [run history and logs](inspect-runs.md) to find the cause.
-2. Correct the cause without redeploying the object. For example, repair a failing source-data row or restore its permissions.
+2. Have the responsible data/platform owner correct the cause without redeploying the object. The operator can repair only data it is authorized to change; missing access returns to the administrator rather than an elevated-role retry.
 3. Retry the recorded failed invocation:
 
 ```sh
@@ -30,7 +30,7 @@ uv run python scripts/dbt_native.py run --config deployment/dev.json --command r
 uv run python scripts/dbt_native.py run --config deployment/dev.json --command retry --writeback --apply
 ```
 
-Retry requires compatible `target/run_results.json` from the failed run. Enabling writeback only for retry cannot recreate missing earlier artifacts. Avoid intervening executions that overwrite the failed state. Serialize runs sharing LIVE writeback paths.
+Retry requires compatible `target/run_results.json` from the failed run. Enabling writeback only for retry cannot recreate missing earlier artifacts. Avoid intervening executions that overwrite the failed state. Serialize runs sharing LIVE writeback paths, including deployments. The separate GitHub workflows share this lock; coordinate local executions as well.
 
 Fusion receives the configured target and profile explicitly; Core inherits them, so the wrapper checks its recorded arguments. Recorded destination mismatches stop execution. The template accepts no retry selector. [dbt retry behavior](https://docs.getdbt.com/reference/commands/retry).
 
@@ -39,7 +39,7 @@ Fusion receives the configured target and profile explicitly; Core inherits them
 | Situation | Action |
 | --- | --- |
 | Failed run has compatible persisted artifacts; only data or permissions changed | Retry without redeploying. |
-| Source code must change | Fix the code, deploy it, then run a new build. |
+| Source code must change | Have the project administrator deploy the reviewed fix, then have the operator run a new build. |
 | Failed run used `--no-writeback`, or failed before runnable nodes were recorded | Correct the cause and run a new build. |
 | Previous invocation succeeded | Run a new build if needed. The pinned Fusion preview returns an error when retry finds no failed nodes. |
 

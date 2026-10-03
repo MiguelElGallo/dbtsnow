@@ -1,4 +1,4 @@
-# Inspect runs and logs
+# Operator: inspect runs and logs
 
 [Documentation](../index.md)
 
@@ -6,37 +6,19 @@ Use this guide after a native dbt execution fails, or to confirm which command r
 
 ## Set up Snowsight access
 
-After the first deployment, configure access for the primary role you use in Snowsight. The deployment role owns the project and can monitor it. If you use another role, grant it `MONITOR` on the project and `USAGE` on its parent database and schema. The wizard saves configuration locally; it does not apply these grants.
+The project administrator first completes [operator project access](project-admin.md#grant-operator-access), granting the configured operator `USAGE` and `MONITOR` on the exact project. The Snowflake administrator supplies parent database/schema and any separate human viewer assignment in [administrator setup](admin-setup.md#complete-project-and-viewer-access-after-deployment).
 
-Ask a Snowflake administrator with `MANAGE GRANTS` to run the following SQL. Replace `<YOUR_VIEWER_ROLE>` with an existing role assigned to your user, and replace the object destination with your configured database, object schema, and project:
+For a human Snowsight login, select the intended operator/viewer role as the **primary role**, then open **Transformation → dbt Projects** and check the project **DAG** and **Run History**. A CLI service user cannot replace this human-browser acceptance check.
 
-```sql
-GRANT USAGE ON DATABASE DEV_DBT_PRJ TO ROLE <YOUR_VIEWER_ROLE>;
-GRANT USAGE ON SCHEMA DEV_DBT_PRJ.PROJECTS TO ROLE <YOUR_VIEWER_ROLE>;
-GRANT MONITOR ON DBT PROJECT DEV_DBT_PRJ.PROJECTS.NATIVE_DBT_EXAMPLE
-  TO ROLE <YOUR_VIEWER_ROLE>;
+If the error names `ACCOUNTADMIN`, that primary role also needs explicit project `MONITOR`. Follow the targeted administrator grant path; using a grant-management role does not automatically satisfy Snowsight viewing. Managed schemas require the schema owner or grant administrator for object grants. Do not widen operator permissions to resolve a browser-role mismatch.
 
-SHOW GRANTS ON DBT PROJECT DEV_DBT_PRJ.PROJECTS.NATIVE_DBT_EXAMPLE;
-```
-
-Expect a row with `privilege = MONITOR` and `grantee_name` equal to your selected viewer role. Select that role as your **primary role** in Snowsight, then open **Transformation → dbt Projects** and select the project. Check that its **DAG** and **Run History** tabs load without a privilege error.
-
-If the error specifically names primary role `ACCOUNTADMIN` and this example object, run this targeted repair with the object owner or a role with `MANAGE GRANTS`. In a managed access schema, use the schema owner or a role with `MANAGE GRANTS`:
-
-```sql
-GRANT MONITOR ON DBT PROJECT DEV_DBT_PRJ.PROJECTS.NATIVE_DBT_EXAMPLE
-  TO ROLE ACCOUNTADMIN;
-```
-
-Refresh the project page. Having `MANAGE GRANTS` lets an administrator grant access; it does not replace the project's required `MONITOR` privilege. You can also select the owning deployment role as your primary role if it is assigned to your user. Check access again if the object is dropped and recreated.
-
-`MONITOR` permits viewing project definitions, lineage, history, and run artifacts. Executing the project requires `USAGE` on the project, and querying its model output requires separate data privileges. [Snowflake dbt access control](https://docs.snowflake.com/en/user-guide/data-engineering/dbt-projects-on-snowflake-access-control) · [Grant authority](https://docs.snowflake.com/en/sql-reference/sql/grant-privilege) · [Monitoring and data access](https://docs.snowflake.com/en/user-guide/data-engineering/dbt-projects-on-snowflake-best-practices).
+`MONITOR` permits viewing project details/history and retrieving recent artifacts. Execution requires project `USAGE`; querying model output requires separate data privileges. [Snowflake dbt access control](https://docs.snowflake.com/en/user-guide/data-engineering/dbt-projects-on-snowflake-access-control).
 
 ## Find the execution
 
 In Snowsight, open **Transformation → dbt Projects**, select the object, then its run history. The [screenshot walkthrough](../screenshots/README.md) shows this path.
 
-Alternatively, run scoped history SQL. Replace the example database, schema, and object with your configuration:
+Alternatively, run scoped history SQL using the operator connection/role. Replace the example database, schema, and object with your configuration:
 
 ```sql
 SELECT QUERY_ID, QUERY_START_TIME, COMMAND, ARGS, STATE, ERROR_MESSAGE
@@ -63,9 +45,9 @@ Use an owning role, or a role with the required object and parent database/schem
 | What failed | Next step |
 | --- | --- |
 | Local configuration or preview | Check the error against the [configuration reference](../reference/configuration.md); no Snowflake write occurred. |
-| Account, runtime, or deployed-profile verification | Correct the destination or deployed settings before executing. |
-| Deployment readback | Inspect the object and uploaded source; a deployment may already have changed it. |
-| Model or data test | Correct the source/data/permissions, then choose [retry or a new build](run-and-retry.md#choose-retry-or-a-new-build). |
+| Account, identity, runtime, or deployed-profile verification | Confirm the selected operator config; have the project administrator correct deployed settings if needed. |
+| Deployment readback | Hand source inspection to the project administrator; a deployment may already have changed it. |
+| Model or data test | Route code to project administration and data/access to the responsible owner, then choose [retry or a new build](run-and-retry.md#choose-retry-or-a-new-build). |
 | Missing state baseline | Refresh a successful baseline and check artifact permissions in the [state guide](state-build.md). |
 
 Neither a failed deployment nor a failed build triggers automatic rollback. Treat logs as potentially sensitive before sharing them.

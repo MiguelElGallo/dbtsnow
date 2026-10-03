@@ -15,11 +15,34 @@ Append `--help` to a subcommand for its parser options. Applied operations requi
 | Command | Default behavior | With `--apply` |
 | --- | --- | --- |
 | `wizard` | Validate a local upload plan and save JSON. | No `--apply` option. |
-| `deploy` | Prepare and display the upload plan without connecting. | Create/update native source and settings, then verify readback. |
-| `migrate` | Display migration scope without connecting. | Migrate only the configured legacy object to `LIVE`; an already-LIVE object is a no-op. |
-| `run` | Display execution settings without connecting. | Execute the selected native dbt command without redeploying source. |
+| `bootstrap` in `scripts/dbt_admin.py` | Display administrator provisioning SQL without connecting. | Provision fresh databases/schemas/roles and optional service users, then verify readback. |
+| `deploy` | Prepare and display the upload plan without connecting. | Project administrator creates/updates native source and verifies readback. |
+| `project-access` | Display the exact operator project grants without connecting. | Project administrator grants that object's `USAGE` and `MONITOR` and verifies them. |
+| `migrate` | Display migration scope without connecting. | Project administrator migrates only the configured legacy object to `LIVE`; an already-LIVE object is a no-op. |
+| `run` | Display execution settings without connecting. | Operator executes the selected native dbt command without redeploying source. |
 
 `wizard` writes a local file. The other previews make no Snowflake connection or cloud changes. A preview does not verify authentication, permissions, or account runtime availability.
+
+## Administrator bootstrap
+
+```sh
+uv run python scripts/dbt_admin.py bootstrap --config deployment/dev.json \
+  --admin-connection snowflake_admin --admin-role ACCOUNTADMIN
+```
+
+| Option | Purpose |
+| --- | --- |
+| `--config PATH` | Required selected project configuration; must name independent custom project-admin/operator roles |
+| `--admin-connection NAME` | Required approved local administrator connection |
+| `--admin-role ROLE` | Required expected active administrative role, explicitly selected |
+| `--project-admin-user USER` | Optional new dedicated project-administrator service user |
+| `--project-admin-public-key-file PATH` | Public RSA key for that user; required with its user option |
+| `--operator-user USER` | Optional new dedicated operator service user |
+| `--operator-public-key-file PATH` | Public RSA key for that user; required with its user option |
+| `--allow-model-schema-creation` | Explicitly add operator `CREATE SCHEMA` on the model database; disabled by default |
+| `--apply` | Connect, verify account/role and resource absence, provision, and read back |
+
+Preview is offline. Apply checks all configured database, role, and requested user collisions before writes. It creates regular schemas and optional `TYPE = SERVICE` users with empty default secondary roles, without accepting private keys or account credentials in the project configuration. Existing corporate resources use [administrator-reviewed SQL](../how-to/admin-setup.md#use-existing-corporate-resources), rather than bootstrap adoption or recreation. The helper does not prove all effective privileges before DDL; see [administrator prerequisites](../how-to/admin-setup.md#administrator-prerequisites). Snowflake DDL is not rolled back on a later failure.
 
 ## Wizard
 
@@ -31,11 +54,15 @@ uv run python scripts/dbt_native.py wizard --source example --output deployment/
 | --- | --- | --- |
 | `--source PATH` | `example` | dbt source directory, relative to the current directory. |
 | `--output PATH` | `deployment/dev.json` | New JSON configuration. Existing files are rejected. |
-| `--connection NAME` | Ask interactively | Read a local named connection for suggestions; blank selects a temporary connection. |
+| `--connection NAME` | Ask interactively | Operator connection used for suggestions and operation; blank selects runtime authentication. |
+| `--deployment-role ROLE` | Original single role | Separate project administrator role. |
+| `--deployment-connection NAME` | Operator connection | Separate project administrator local connection. |
+| `--operator-user USER` | None | Expected authenticated operator username. |
+| `--deployment-user USER` | None | Expected authenticated project administrator username. |
 | `--non-interactive` | Disabled | Use explicit/inferred values without prompts; fail on missing required values. |
 | `--external-access-integration NAME` | None | Existing integration. Repeat the flag for multiple names. |
 | `--default-writeback` / `--no-default-writeback` | Disabled | Persist generated run artifacts in `LIVE` by default. |
-| `--auto-compile` / `--no-auto-compile` | Enabled | Compile during deployment. |
+| `--auto-compile` / `--no-auto-compile` | Disabled with separate roles; enabled otherwise | Compile during deployment; separated deployment requires it disabled. |
 
 The remaining value options correspond to [configuration fields](configuration.md): `--account`, `--database`, `--object-schema`, `--project`, `--role`, `--warehouse`, `--model-database`, `--model-schema`, `--profile`, `--target`, and `--dbt-version`.
 
@@ -43,7 +70,7 @@ Interactive boolean answers are `yes`, `no`, `y`, or `n`; Enter accepts the show
 
 ## Shared operation flags
 
-These flags apply to `deploy`, `migrate`, and `run`:
+These flags apply to `deploy`, `migrate`, `project-access`, and `run`:
 
 | Option | Required/default | Meaning |
 | --- | --- | --- |
@@ -51,7 +78,7 @@ These flags apply to `deploy`, `migrate`, and `run`:
 | `--apply` | Disabled | Enable the cloud operation. |
 | `--temporary-connection` | Disabled | Ignore the saved local connection name and use runtime authentication, such as GitHub OIDC. |
 
-Destination, role, and warehouse remain explicit from the configuration, including with a temporary connection. There is no password or private-key option in this wrapper.
+Destination, calling role, and warehouse remain explicit from the configuration, including with a temporary connection. Each authenticated invocation disables secondary roles. Project administration and operation select their respective roles/connections/expected users as listed in [configuration](configuration.md#identity-selection-and-split-role-mode). There is no password or private-key option in this wrapper.
 
 ## Deploy
 
@@ -59,11 +86,22 @@ Destination, role, and warehouse remain explicit from the configuration, includi
 uv run python scripts/dbt_native.py deploy --config deployment/dev.json --apply
 ```
 
-`--build` optionally runs `dbt build` after deployment and source verification. It writes model relations and runs tests. Without `--apply`, `--build` only previews that intention.
+For legacy single-role configurations, `--build` optionally runs `dbt build` after deployment and source verification. It writes model relations and runs tests. Without `--apply`, `--build` only previews that intention. With separate roles, `--build` and `auto_compile: true` are rejected before connecting; the operator runs a separate `run` command.
 
-Compilation and writeback settings come from the configuration. Deployment never uses `--force` and rejects an existing legacy object. Applied deployment verifies identity and runtime support, downloads the source and receipt, checks hashes, and checks the available native metadata. In GitHub, the receipt records the exact clean checked-out commit.
+Compilation and writeback settings come from the configuration. Deployment never uses `--force` and rejects an existing legacy object. Applied deployment verifies the project administrator identity and runtime support, requires its configured ownership for an existing object, downloads the source and receipt, checks hashes, and checks the available native metadata. In GitHub, the receipt records the exact clean checked-out commit.
 
 Deployment replaces all `LIVE` files, including prior persisted execution artifacts. It can change object settings before a later failure; a failed model build can leave changed relations. There is no automatic rollback. See [first deployment](../tutorials/first-deployment.md).
+
+## Project access
+
+```sh
+uv run python scripts/dbt_native.py project-access --config deployment/dev.json
+uv run python scripts/dbt_native.py project-access --config deployment/dev.json --apply
+```
+
+This access handoff command runs as the configured project administrator. Apply verifies object ownership and grants only `USAGE` and `MONITOR` on the exact configured DBT PROJECT to `role`, then reads the grants back. It does not grant parent access, warehouse/data access, account privileges, or roles to users. Those belong to [administrator setup](../how-to/admin-setup.md).
+
+The owner can distribute object grants in regular schemas. Managed-access schemas require the schema owner or grant administrator; the command does not widen the owner's authority. See [project administration](../how-to/project-admin.md#grant-operator-access).
 
 ## Migrate
 
@@ -71,7 +109,7 @@ Deployment replaces all `LIVE` files, including prior persisted execution artifa
 uv run python scripts/dbt_native.py migrate --config deployment/dev.json --apply
 ```
 
-Migration checks the selected account/role, the existing object's version, and the resulting `LIVE` version, with location and preserved metadata checked where exposed. It never enables account behavior bundles. Numbered source versions become inaccessible after migration; execution history remains. See [migrate to LIVE](../how-to/migrate-to-live.md).
+Migration uses the project administrator role/connection and checks the selected identity, the existing object's version, and the resulting `LIVE` version, with location and preserved metadata checked where exposed. It never enables account behavior bundles. Numbered source versions become inaccessible after migration; execution history remains. See [migrate to LIVE](../how-to/migrate-to-live.md).
 
 ## Run
 
@@ -87,7 +125,7 @@ uv run python scripts/dbt_native.py run --config deployment/dev.json --command b
 | `--select SELECTOR` | None | Pass one literal dbt selector, such as `state:modified+` or `example_model`. |
 | `--defer` | Disabled | Resolve unselected references against state; requires `--state-from`. |
 
-Applied runs require an existing `LIVE` object. The wrapper verifies its runtime, downloaded project profile name, and selected profile's base database/schema/role/warehouse against the configuration before executing.
+Applied runs use the operator role/connection and require an existing `LIVE` object. The wrapper verifies its runtime, downloaded project profile name, and selected profile's base database/schema/role/warehouse against the configuration before executing.
 
 ### State and selection
 

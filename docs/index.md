@@ -1,35 +1,40 @@
-# Native dbt deployment, step by step
+# Native dbt projects with separate roles
 
-Deploy a dbt project as a Snowflake object, then build its models when you choose. Start with the included one-view example and use the task guides as your project grows.
+Choose the part of the setup you own. Platform administration happens first; the project administrator and operator then work through separate identities.
 
-## Start here
+| Who you are | Your tasks | Start here |
+| --- | --- | --- |
+| Snowflake administrator | Provision database, schemas, two roles, user assignments, and authentication | [Administrator setup](how-to/admin-setup.md) |
+| dbt project administrator | Deploy and verify source, own the object, grant operator project access, migrate legacy objects | [Project administration](how-to/project-admin.md) |
+| dbt operator | Compile/build, retry failed runs, check sources, inspect history and logs | [Run and retry](how-to/run-and-retry.md) · [Inspect runs](how-to/inspect-runs.md) |
 
-1. [Preview the example](tutorials/preview-the-example.md). Learn the deployment plan without a Snowflake account.
-2. [Deploy your first project](tutorials/first-deployment.md). Use the wizard, deploy, build, and check the result in a development database.
-3. [See the screenshot walkthrough](screenshots/README.md). Follow the recorded wizard, Snowsight project, runs, and GitHub checks.
+## Learn the full handoff
+
+1. [Preview the example](tutorials/preview-the-example.md) without a Snowflake connection.
+2. [Deploy your first project](tutorials/first-deployment.md) using administrator setup and two dedicated authenticated test users.
+3. [Configure GitHub](how-to/github-actions.md) with separate deployment and operation workflows.
+
+The [role explanation](explanation/role-separation.md) shows what each role can do and why the two delegated roles remain independent.
 
 ## Complete a task
 
-| I want to… | How-to guide |
+| Task | Guide |
 | --- | --- |
-| Deploy from GitHub Actions | [Configure OIDC and run the workflow](how-to/github-actions.md) |
-| Migrate an existing numbered project | [Migrate to LIVE](how-to/migrate-to-live.md) |
-| Build models or retry a failed run | [Run and retry](how-to/run-and-retry.md) |
-| Build only changed models | [Use baseline state](how-to/state-build.md) |
-| Check whether source data is recent | [Check source freshness](how-to/check-source-freshness.md) |
-| Find run details and logs | [Inspect runs](how-to/inspect-runs.md) |
-| Give an agent the right repository context | [Use the agent skills](how-to/use-agent-skills.md) |
+| Prepare access or additional source/model schemas | [Administrator setup](how-to/admin-setup.md) |
+| Update source and hand off access | [Project administration](how-to/project-admin.md) |
+| Convert a numbered project | [Migrate to LIVE](how-to/migrate-to-live.md) |
+| Build or recover a failed run | [Run and retry](how-to/run-and-retry.md) |
+| Find runs and logs | [Inspect runs](how-to/inspect-runs.md) |
+| Build only changed models | [Baseline state](how-to/state-build.md) |
+| Check source data age | [Source freshness](how-to/check-source-freshness.md) |
+| Work with an agent | [Choose the matching skill](how-to/use-agent-skills.md) |
 
-## Look up a setting
+## Reference and explanation
 
-- [Configuration](reference/configuration.md): fields, defaults, inference, and supported project files.
-- [Commands](reference/commands.md): flags, previews, execution, and failure behavior.
+- [Configuration](reference/configuration.md) and [commands](reference/commands.md): exact fields, flags, checks, and compatibility.
+- [Roles and identities](explanation/role-separation.md): boundaries and handoff.
+- [Deployment choice](explanation/deployment-choice.md): CLI, SQL, Snowsight, and DCM.
+- [LIVE behavior](explanation/live-version.md): source replacement, state, migration, and rollback.
+- [Validation](validation.md) and [documentation review](documentation-review.md): recorded checks and their limits.
 
-## Understand the design
-
-- [Why CLI and GitHub Actions?](explanation/deployment-choice.md): SQL, Snowsight, and DCM compared.
-- [What does LIVE change?](explanation/live-version.md): source updates, artifacts, migration, and rollback.
-- [Validation evidence](validation.md): peer reviews, local checks, real trial executions, and their limits.
-- [Documentation review](documentation-review.md): independent structure, clarity, and source-accuracy passes.
-
-The documentation separates learning, task instructions, reference, and explanation using [Diátaxis](https://diataxis.fr/start-here/). Its short steps, runnable examples, and visible checkpoints follow the writing approach of [FastAPI's tutorial](https://fastapi.tiangolo.com/tutorial/first-steps/).
+[Historical screenshots](screenshots/README.md) show the earlier combined-role implementation. They are examples rather than current role setup instructions. Tutorials, task guides, reference, and explanation follow [Diátaxis](https://diataxis.fr/start-here/).
