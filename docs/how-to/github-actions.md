@@ -68,6 +68,8 @@ Use the exact GitHub owner/repository name in the subject. The environment name 
 
 The creator owns the native object and can update and monitor it. dbt issues schema-creation statements, so the example grants `CREATE SCHEMA` within the dedicated development database. For an existing object owned by another role, arrange its ownership separately. Real projects also need appropriate source-data privileges; grant `SELECT` only on their intended sources. Custom model schemas need their own permissions. Remote packages additionally need `USAGE` on the selected existing external access integration. The CLI's temporary upload stage does not require a permanent-stage creation grant.
 
+Choose the primary role your team will use to view the project in Snowsight. After the first deployment creates the object, complete [Snowsight viewer access setup](inspect-runs.md#set-up-snowsight-access) for that role: `USAGE` on the object database/schema and `MONITOR` on the project. The service user's deployment role owns the project; a separate browser role, including `ACCOUNTADMIN`, needs its own viewer access. Keep this grant step with administrator setup; the deployment workflow does not apply viewer grants.
+
 Sources: [official OIDC action](https://github.com/snowflakedb/snowflake-actions), [dbt permissions](https://docs.snowflake.com/en/user-guide/data-engineering/dbt-projects-on-snowflake-access-control), [temporary stages](https://docs.snowflake.com/en/sql-reference/sql/create-stage).
 
 ## 3. Configure GitHub
@@ -94,6 +96,8 @@ The workflow runs format checks, Ruff, ty, and unit tests before authenticating 
 Leave **build** disabled to deploy the native project; compilation follows `auto_compile` in the saved configuration. Enable it to run `dbt build`, which writes tables or views and runs dbt tests against the configured model destination. The workflow verifies the runtime and target, downloads the deployed source, and compares its file hashes and commit receipt with the upload. Native commit metadata is also checked when exposed by the account. A later build failure does not undo deployment or previously changed relations.
 
 For a state-based build, also set **state_from** to the baseline `DB.SCHEMA.PROJECT`, **select** to `state:modified+`, and optionally enable **defer**. These inputs require **build**. Configure a separate CI model destination and set `auto_compile: false` to avoid compiling every model during deployment. State-based workflow builds disable writeback; ordinary builds follow `default_writeback`. See the [state-build guide](state-build.md) for prerequisites and permissions, or the separate [migration guide](migrate-to-live.md) for numbered objects.
+
+After the first successful deployment, have the administrator apply the viewer grants selected in step 2. Use that primary role in Snowsight and confirm **Transformation → dbt Projects → your project → DAG / Run History** opens without a privilege error.
 
 The example has no external packages and builds one view with dbt tests. Larger projects should add isolated model-build validation before production promotion. This development starter does not automatically run model builds on incoming pull requests or deploy on every push.
 

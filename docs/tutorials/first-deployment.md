@@ -94,6 +94,12 @@ Verified deployment: DEV_DBT_PRJ.PROJECTS.native_dbt_example, runtime 2.0.0-prev
 
 The account must support the selected runtime and LIVE objects. The wrapper stops before replacing an existing numbered object; use the separate [migration guide](../how-to/migrate-to-live.md) for that situation.
 
+## Complete Snowsight access setup
+
+Select `DEV_DBT_PRJ_DEPLOYER` as your primary role in Snowsight to view the project it owns. If you plan to view it with a different primary role, including `ACCOUNTADMIN`, have an administrator [configure viewer access](../how-to/inspect-runs.md#set-up-snowsight-access) now: grant `MONITOR` on the deployed project and `USAGE` on its parent database and schema to that role.
+
+Open **Transformation → dbt Projects**, select `NATIVE_DBT_EXAMPLE` in `DEV_DBT_PRJ.PROJECTS`, and check that **DAG** and **Run History** load without a privilege error. If you configured a separate viewer role, verify its `MONITOR` grant with the SQL in the access guide. Project ownership belongs to the deployment role; using `ACCOUNTADMIN` in the browser does not automatically satisfy Snowsight's `MONITOR` requirement.
+
 ## Build and check the view
 
 ```sh
