@@ -42,6 +42,7 @@ Confirm these entries in the plan:
 | Native project | `DEV_DBT_PRJ.PROJECTS.NATIVE_DBT_EXAMPLE` |
 | Model destination | `DEV_DBT_PRJ.ANALYTICS` |
 | Profile / target | `native_dbt_example` / `dev` |
+| Runtime | `2.0.0` |
 | Automatic compilation / default writeback | Both disabled |
 
 The separate expected users are placeholders for dedicated project-admin/operator identities. They do not authenticate during this preview. The runtime shown comes from the pinned sample configuration; force replacement remains disabled.

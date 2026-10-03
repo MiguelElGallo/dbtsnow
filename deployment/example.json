@@ -11,7 +11,7 @@
   "model_schema": "ANALYTICS",
   "profile": "native_dbt_example",
   "target": "dev",
-  "dbt_version": "2.0.0-preview.210",
+  "dbt_version": "2.0.0",
   "external_access_integrations": [],
   "auto_compile": false,
   "default_writeback": false,

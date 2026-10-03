@@ -22,7 +22,7 @@ from urllib.parse import urlsplit
 import yaml
 
 CLI_VERSION = "3.28.0"
-DEFAULT_DBT_VERSION = "2.0.0-preview.210"
+DEFAULT_DBT_VERSION = "2.0.0"
 IDENTIFIER = re.compile(r"[A-Za-z_][A-Za-z0-9_$]{0,254}\Z")
 LABEL = re.compile(r"[A-Za-z_][A-Za-z0-9_-]*\Z")
 ACCOUNT = re.compile(r"[A-Za-z0-9_]+-[A-Za-z0-9_]+\Z")

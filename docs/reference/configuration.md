@@ -31,7 +31,7 @@ Optional fields have these defaults:
 | `deployment_connection` | String or `null` | `null` | Project administrator connection. `null` falls back to `connection`; `--temporary-connection` ignores both names. |
 | `operator_user` | String or `null` | `null` | Expected authenticated `CURRENT_USER()` for operation. |
 | `deployment_user` | String or `null` | `null` | Expected authenticated user for project administration. In legacy mode without a separate deployment connection, omission falls back to `operator_user`. |
-| `dbt_version` | String | `2.0.0-preview.210` | Exact native runtime version. Core `1.11.11` is also supported by this template. Apply checks account availability. |
+| `dbt_version` | String | `2.0.0` | Exact native runtime version. Core `1.11.11` is also supported by this template. Apply checks account availability. |
 | `external_access_integrations` | Array of strings | `[]` | Existing integrations permitted to download remote packages inside Snowflake. |
 | `auto_compile` | Boolean | `true` in manually supplied JSON when omitted | Compile on deployment; with an integration, run `deps` first. `false` skips both. Split-role deployment requires `false`; the wizard suggests `false` for separated roles. |
 | `default_writeback` | Boolean | `false` | Default persistence of generated `target` and log files into `LIVE`. |
@@ -58,7 +58,7 @@ Object, role, warehouse, model destination, and integration names must be simple
 
 `profile`, `target`, and non-null connection names start with a letter or `_` and may then contain letters, digits, `_`, or `-`. The account uses two components separated by one `-`; each component contains only letters, digits, or `_`. Supply an organization/account identifier, not an account URL.
 
-`dbt_version` must be an exact version such as `1.11.11` or `2.0.0-preview.210`; ranges and `latest` are rejected.
+`dbt_version` must be an exact version such as `1.11.11` or `2.0.0`; ranges and `latest` are rejected.
 
 ## Two destinations
 

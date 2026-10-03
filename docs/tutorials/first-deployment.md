@@ -28,7 +28,7 @@ Edit the copied, ignored JSON. Set `account` to your actual `ORGANIZATION-ACCOUN
 }
 ```
 
-This fragment shows fields in the complete copied configuration; it is not a standalone config. Keep `PROJECTS` as the object schema, `ANALYTICS` as model schema, `NATIVE_DBT_EXAMPLE` as the project, and `native_dbt_example` / `dev` as profile/target. Runtime choices come from [configuration](../reference/configuration.md).
+This fragment shows fields in the complete copied configuration; it is not a standalone config. Keep `PROJECTS` as the object schema, `ANALYTICS` as model schema, `NATIVE_DBT_EXAMPLE` as the project, and `native_dbt_example` / `dev` as profile/target. The copied configuration pins runtime `2.0.0`; runtime choices come from [configuration](../reference/configuration.md).
 
 Preview the agreed destination:
 

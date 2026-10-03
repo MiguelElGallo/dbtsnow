@@ -21,7 +21,7 @@ Both users are `TYPE = SERVICE`, with distinct RSA key pairs, their respective d
 
 Each subsequent persona authenticated with its own username and key, independently from the administrator. `CURRENT_USER()`, `CURRENT_ROLE()`, account identity, and `CURRENT_SECONDARY_ROLES()` were verified. With CLI `--secondary-roles NONE`, the account returned `{"roles":"","value":""}`; the checks accept that observed empty state and reject missing or active secondary-role metadata.
 
-The existing `COMPUTE_WH` warehouse was selected. The isolated live config pinned supported runtime `2.0.0`; concurrent runtime-default edits in the original checkout were preserved.
+The existing `COMPUTE_WH` warehouse was selected. The isolated live config pinned supported runtime `2.0.0`; the original checkout's concurrent runtime edits were preserved. The repository default and sample were subsequently updated to `2.0.0` in this PR.
 
 ## Live acceptance
 
@@ -73,3 +73,11 @@ The ignored local harness recorded 19 distinct SQL probes, including these ten d
 The key-pair logins exercise newly created service users through Snowflake CLI. They do not prove human Snowsight login or GitHub OIDC authentication. Workflow linting and static tests validate the two-job boundary; no GitHub job was dispatched. Managed-access schemas use the documented administrator grant path; the shipped jobs and fresh bootstrap use regular schemas.
 
 The fixture is retained for inspection. Future removal of its database, roles, users, and local keys is administrator work; deployments never perform account-resource cleanup.
+
+## Default runtime update
+
+The user requested stable `2.0.0` after the role split. The wrapper default, offline sample, current documentation, and Fusion retry regression now pin that exact version. Omitted-version configurations select stable Fusion; explicit Core pins remain unchanged. Both independent review passes checked this update and preserved the separated identities and historical preview evidence.
+
+Read-only checks on 2026-10-03 confirmed that account `VAYNIMM-KP67615` supports `2.0.0` and both `DEV_DBT_PRJ.PROJECTS.NATIVE_DBT_EXAMPLE` and `DBTSNOW_RBAC_TEST_20261003.PROJECTS.NATIVE_DBT_EXAMPLE` already report runtime `2.0.0`, target `dev`, and `LIVE`. The role fixture was additionally checked through its dedicated project-administrator login. No cloud runtime change or source redeployment was needed.
+
+The updated 134-test suite, Ruff lint/format, ty, workflow lint, documentation examples/links, and offline sample/wizard checks passed. The live build, compile, and real failed-test retry above already exercised `2.0.0`; those artifacts were preserved.

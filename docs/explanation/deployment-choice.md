@@ -33,9 +33,9 @@ Sources: [CLI deploy flags](https://docs.snowflake.com/en/developer-guide/snowfl
 
 ## Versions and rollback
 
-Pin Snowflake CLI **3.28.0**, released in September 2026. The default native runtime is **Fusion 2.0.0-preview.210**; **Core 1.11.11** is also offered. Snowflake documents Fusion as generally available despite dbt Labs' version naming. The account's `SYSTEM$SUPPORTED_DBT_VERSIONS()` result is authoritative for availability.
+Pin Snowflake CLI **3.28.0**, released in September 2026. The default native runtime is **Fusion 2.0.0**; **Core 1.11.11** is also offered. dbt v2.0 reached general availability on September 16, 2026. The selected account confirmed support for `2.0.0` on October 3, 2026, while Snowflake's published runtime table still listed preview builds. The account's `SYSTEM$SUPPORTED_DBT_VERSIONS()` result is authoritative for availability, and deployment checks it before applying.
 
-Sources: [CLI release](https://github.com/snowflakedb/snowflake-cli/releases/tag/v3.28.0), [supported runtimes](https://docs.snowflake.com/en/user-guide/data-engineering/dbt-projects-on-snowflake-dbt-core-versions).
+Sources: [CLI release](https://github.com/snowflakedb/snowflake-cli/releases/tag/v3.28.0), [supported runtimes](https://docs.snowflake.com/en/user-guide/data-engineering/dbt-projects-on-snowflake-dbt-core-versions), [dbt v2.0 release](https://docs.getdbt.com/blog/dbt-v2-is-ga).
 
 The `2026_06` behavior change bundle is enabled by default, and new opted-in objects use a single mutable `live` version. Existing objects can still retain legacy numbered versions until migrated. This starter detects the distinction through `default_version`, and offers an explicit, separate `migrate` command for the configured object. Deployment never silently migrates or replaces legacy objects. Migration removes access to numbered source history while preserving execution history. See the [LIVE explanation](live-version.md).
 

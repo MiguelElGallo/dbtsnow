@@ -41,7 +41,7 @@ Fusion receives the configured target and profile explicitly; Core inherits them
 | Failed run has compatible persisted artifacts; only data or permissions changed | Retry without redeploying. |
 | Source code must change | Have the project administrator deploy the reviewed fix, then have the operator run a new build. |
 | Failed run used `--no-writeback`, or failed before runnable nodes were recorded | Correct the cause and run a new build. |
-| Previous invocation succeeded | Run a new build if needed. The pinned Fusion preview returns an error when retry finds no failed nodes. |
+| Previous invocation succeeded | Run a new build if needed. The previously tested Fusion `2.0.0-preview.210` returned an error when retry found no failed nodes; do not rely on retry as a successful no-op. |
 
 Deployment replaces all LIVE files, including generated target/log files. A code deployment therefore deletes the failed state needed by retry. [LIVE file behavior](https://docs.snowflake.com/en/user-guide/data-engineering/dbt-projects-on-snowflake-live-version).
 

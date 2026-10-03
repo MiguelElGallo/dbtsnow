@@ -474,7 +474,7 @@ class LiveVersionTests(unittest.TestCase):
             native.verify_execution_target(self.config, [], "retry")
 
     def test_fusion_retry_pins_profile_and_target_when_artifacts_omit_them(self) -> None:
-        config = replace(self.config, dbt_version="2.0.0-preview.210")
+        config = replace(self.config, dbt_version="2.0.0")
         command = native.execution_command(config, command="retry")
         self.assertEqual(command[command.index("--target") + 1], "dev")
         self.assertEqual(command[command.index("--profile") + 1], "pipeline")
