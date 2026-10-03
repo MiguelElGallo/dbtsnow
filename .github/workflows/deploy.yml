@@ -1,0 +1,63 @@
+name: Deploy native dbt
+
+on:
+  workflow_dispatch:
+    inputs:
+      build:
+        description: Build and test models after deploying (writes to the dbt target)
+        type: boolean
+        required: true
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: native-dbt-dev
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: dev
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      SNOWFLAKE_ACCOUNT: ${{ vars.SNOWFLAKE_ACCOUNT }}
+      SNOWFLAKE_USER: ${{ vars.SNOWFLAKE_USER }}
+      BUILD_MODELS: ${{ inputs.build }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@94527f2e458b27549849d47d273a16bec83a01e9 # v7
+        with:
+          version: '0.12.17'
+          python-version: '3.12'
+      - run: uv sync --frozen
+      - name: Run local gates before authenticating
+        run: |
+          uv run ruff check .
+          uv run ruff format --check .
+          uv run ty check
+          uv run python -m unittest discover -s tests -v
+          uv run python scripts/dbt_native.py deploy --config deployment/dev.json
+      - uses: snowflakedb/snowflake-actions@1160898243c351349621a6c2bac2e455ab1077b2 # v3
+        with:
+          cli-version: '3.28.0'
+          use-oidc: true
+          default-config-file-path: .github/no-local-connection.toml
+      - name: Deploy and verify the native object
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$SNOWFLAKE_ACCOUNT"
+          test -n "$SNOWFLAKE_USER"
+          args=(deploy --config deployment/dev.json --temporary-connection --apply)
+          if [[ "$BUILD_MODELS" == "true" ]]; then
+            args+=(--build)
+          fi
+          uv run python scripts/dbt_native.py "${args[@]}"

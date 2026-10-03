@@ -1,0 +1,19 @@
+[project]
+name = "dbtsnow"
+version = "0.1.0"
+description = "A guided deployment template for native Snowflake dbt projects"
+requires-python = ">=3.11"
+dependencies = ["PyYAML==6.0.3"]
+
+[dependency-groups]
+dev = ["ruff==0.16.8", "ty==0.0.82"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.ty.environment]
+python-version = "3.11"

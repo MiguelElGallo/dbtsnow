@@ -1,0 +1,9 @@
+version: 2
+models:
+  - name: deployment_check
+    description: Small model used to verify deployment and native execution.
+    columns:
+      - name: id
+        data_tests:
+          - not_null
+          - unique

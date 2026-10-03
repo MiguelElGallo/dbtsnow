@@ -1,0 +1,8 @@
+name: native_dbt_example
+version: '1.0.0'
+config-version: 2
+profile: native_dbt_example
+model-paths: [models]
+models:
+  native_dbt_example:
+    +materialized: view
