@@ -8,6 +8,7 @@ import hashlib
 import json
 import os
 import re
+import shlex
 import shutil
 import subprocess
 import sys
@@ -61,6 +62,8 @@ class Config:
     connection: str | None = None
     dbt_version: str = DEFAULT_DBT_VERSION
     external_access_integrations: list[str] = field(default_factory=list)
+    default_writeback: bool = False
+    auto_compile: bool = True
 
     @property
     def object_name(self) -> str:
@@ -86,6 +89,9 @@ def literal(value: Any) -> str:
 
 
 def validate_config(config: Config) -> None:
+    for name in ("default_writeback", "auto_compile"):
+        if not isinstance(getattr(config, name), bool):
+            raise DeploymentError(f"{name} must be a JSON boolean.")
     for name in (
         "database",
         "object_schema",
@@ -423,6 +429,19 @@ def wizard(args: argparse.Namespace) -> Config:
         )
         integrations = [item.strip() for item in response.split(",") if item.strip()]
     values["external_access_integrations"] = integrations
+    for name, fallback in (("default_writeback", False), ("auto_compile", True)):
+        setting = getattr(args, name, None)
+        if setting is None and not args.non_interactive:
+            if name == "default_writeback":
+                print("Writeback saves run artifacts in LIVE for retry; serialize runs using it.")
+                prompt = "persist run artifacts in LIVE (writeback)"
+            else:
+                prompt = "compile during deployment"
+            response = ask(prompt, "yes" if fallback else "no", False).lower()
+            if response not in ("yes", "no", "y", "n"):
+                raise DeploymentError(f"{name}: enter yes or no.")
+            setting = response in ("yes", "y")
+        values[name] = fallback if setting is None else setting
     config = Config(**values)
     with tempfile.TemporaryDirectory(prefix="dbtsnow-plan-") as temp:
         uploaded = prepare_source(config, Path(temp) / "source")
@@ -449,7 +468,7 @@ def run_command(command: list[str]) -> str:
         # Avoid echoing CLI output: it can contain SQL, model data, or credentials.
         raise DeploymentError(
             f"{command[0]} {command[1]} failed (exit {exc.returncode}); "
-            "deployment was not verified."
+            "operation did not complete successfully."
         ) from exc
     return completed.stdout
 
@@ -510,7 +529,7 @@ def github_metadata(source: Path) -> dict[str, str]:
     return metadata
 
 
-def preflight(config: Config, options: list[str]) -> None:
+def check_session(config: Config, options: list[str]) -> None:
     version = run_command(["snow", "--version"])
     if not re.search(rf"(?<![\d.]){re.escape(CLI_VERSION)}(?![\d.])", version):
         raise DeploymentError(f"Install pinned Snowflake CLI {CLI_VERSION} before applying.")
@@ -528,6 +547,34 @@ def preflight(config: Config, options: list[str]) -> None:
         or str(row.get("role", "")).upper() != config.role.upper()
     ):
         raise DeploymentError("Authenticated account or role does not match the deployment config.")
+
+
+def project_row(config: Config, options: list[str]) -> dict[str, Any] | None:
+    rows = sql_rows(
+        f"SHOW DBT PROJECTS LIKE '{config.project}' "
+        f"IN SCHEMA {config.database}.{config.object_schema}",
+        options,
+    )
+    matches = [row for row in rows if str(row.get("name", "")).upper() == config.project.upper()]
+    if len(matches) > 1:
+        raise DeploymentError("Cannot identify a unique dbt project object.")
+    return matches[0] if matches else None
+
+
+def confirm_live(row: dict[str, Any]) -> None:
+    if str(row.get("default_version", "")).upper() != "LIVE":
+        raise DeploymentError(
+            "Object does not report a mutable LIVE version. Run migrate --config <config> "
+            "to review a separate migration; deployment never replaces legacy objects."
+        )
+    for key in ("location", "default_version_location_uri"):
+        location = row.get(key)
+        if location is not None and not str(location).rstrip("/").endswith("/versions/live"):
+            raise DeploymentError("LIVE object location does not use /versions/live/.")
+
+
+def preflight(config: Config, options: list[str]) -> dict[str, Any] | None:
+    check_session(config, options)
     supported = sql_rows("SELECT SYSTEM$SUPPORTED_DBT_VERSIONS() AS versions", options)
     if len(supported) != 1:
         raise DeploymentError("Cannot verify supported dbt runtimes.")
@@ -542,23 +589,225 @@ def preflight(config: Config, options: list[str]) -> None:
         for value in versions
     ):
         raise DeploymentError(f"dbt runtime {config.dbt_version} is not supported by this account.")
-    objects = sql_rows(
-        f"SHOW DBT PROJECTS LIKE '{config.project}' "
-        f"IN SCHEMA {config.database}.{config.object_schema}",
-        options,
+    existing = project_row(config, options)
+    if existing is not None:
+        confirm_live(existing)
+    return existing
+
+
+def migrate(config: Config, *, apply: bool = False, temporary_connection: bool = False) -> None:
+    validate_config(config)
+    query = f"SELECT SYSTEM$MIGRATE_DBT_PROJECT('{config.object_name}')"
+    print(f"Migration destination: {config.account}, role {config.role}, {config.object_name}")
+    print("Migration preserves object identity, grants, task references, and execution history.")
+    print("Numbered source versions become inaccessible. Save needed versions before applying.")
+    print(query)
+    if not apply:
+        print("Dry run: no Snowflake connection or migration. Add --apply to migrate this object.")
+        return
+    options = connection_options(config, temporary_connection)
+    check_session(config, options)
+    before = project_row(config, options)
+    if before is None:
+        raise DeploymentError("Migration target does not exist or is not visible to this role.")
+    if str(before.get("default_version", "")).upper() == "LIVE":
+        confirm_live(before)
+        print("Already LIVE; no migration performed.")
+        return
+    version = str(before.get("default_version", "")).upper()
+    if version not in ("FIRST", "LAST") and not re.fullmatch(r"VERSION\$\d+", version):
+        raise DeploymentError("Cannot verify legacy version semantics; no migration performed.")
+    status = sql_rows("SELECT SYSTEM$BEHAVIOR_CHANGE_BUNDLE_STATUS('2026_06') AS status", options)
+    print(
+        f"2026_06 bundle status: {status}. "
+        "The separate live-version feature also permits migration."
     )
-    existing = [
-        row for row in objects if str(row.get("name", "")).upper() == config.project.upper()
-    ]
-    if existing:
-        versions = sql_rows(f"SHOW VERSIONS IN DBT PROJECT {config.object_name}", options)
-        if not versions or not any(
-            row.get("is_live") in (True, "true", "TRUE", "Y") for row in versions
+    sql_rows(query, options)
+    after = project_row(config, options)
+    if after is None:
+        raise DeploymentError("Migrated object is missing from readback.")
+    confirm_live(after)
+    for key in (
+        "name",
+        "database_name",
+        "schema_name",
+        "owner",
+        "created_on",
+        "dbt_version",
+        "default_target",
+    ):
+        if key in before and after.get(key) != before[key]:
+            raise DeploymentError(f"Migration readback changed {key}; inspect the object.")
+    print(f"Verified migration: {config.object_name} is LIVE with existing metadata preserved.")
+
+
+def execution_command(
+    config: Config,
+    *,
+    command: str = "build",
+    state_from: str | None = None,
+    selection: str | None = None,
+    defer: bool = False,
+    writeback: bool | None = None,
+    temporary_connection: bool = False,
+) -> list[str]:
+    validate_config(config)
+    if command not in ("build", "compile", "retry", "source-freshness"):
+        raise DeploymentError("Unsupported execution command.")
+    if writeback is not None and not isinstance(writeback, bool):
+        raise DeploymentError("writeback must be a boolean.")
+    if state_from is not None and (
+        len(state_from.split(".")) != 3
+        or not all(IDENTIFIER.fullmatch(part) for part in state_from.split("."))
+    ):
+        raise DeploymentError("state_from must be database.schema.project with simple identifiers.")
+    if selection is not None and (
+        not re.fullmatch(r"[A-Za-z0-9_.*:+,@/-]+", selection) or selection.startswith("-")
+    ):
+        raise DeploymentError(
+            "selection must be one literal dbt selector, such as state:modified+."
+        )
+    if defer and not state_from:
+        raise DeploymentError("--defer requires --state-from.")
+    if command in ("retry", "source-freshness") and (state_from or defer):
+        raise DeploymentError("State imports are supported only for build and compile.")
+    if command == "retry" and selection is not None:
+        raise DeploymentError("retry reuses the previous invocation; selection is not supported.")
+    persist = config.default_writeback if writeback is None else writeback
+    options = connection_options(config, temporary_connection)
+    result = ["snow", "dbt", "execute", *options, "--writeback" if persist else "--no-writeback"]
+    if state_from:
+        result.extend(
+            [
+                "--import",
+                f"SYSTEM$DBT_GET_LAST_SUCCESSFUL_RUN_TARGET('{state_from}', "
+                "'build,run') AS 'state'",
+            ]
+        )
+    result.append(config.object_name)
+    result.extend(["source", "freshness"] if command == "source-freshness" else [command])
+    if command != "retry" or config.dbt_version.startswith("2."):
+        result.extend(["--target", config.target])
+    if command == "retry" and config.dbt_version.startswith("2."):
+        result.extend(["--profile", config.profile])
+    if state_from:
+        result.extend(["--state", "./imports/state"])
+    if defer:
+        result.append("--defer")
+    if selection:
+        result.extend(["--select", selection])
+    return result
+
+
+def verify_execution_target(config: Config, options: list[str], command: str) -> None:
+    """Check mutable profile destinations and the inherited target before an execution."""
+    with tempfile.TemporaryDirectory(prefix="dbtsnow-execution-") as temp:
+        downloaded = Path(temp)
+        live = f"snow://dbt/{config.object_name}/versions/live/"
+        run_command(["snow", "dbt", "copy", live + "dbt_project.yml", str(downloaded), *options])
+        project = read_mapping(downloaded / "dbt_project.yml")
+        if literal(project.get("profile")) != config.profile:
+            raise DeploymentError("Deployed project uses a different profile from the config.")
+        run_command(["snow", "dbt", "copy", live + PROFILE_FILES[0], str(downloaded), *options])
+        profiles = read_mapping(downloaded / PROFILE_FILES[0])
+        profile = profiles.get(config.profile)
+        outputs = profile.get("outputs") if isinstance(profile, dict) else None
+        target = outputs.get(config.target) if isinstance(outputs, dict) else None
+        if not isinstance(target, dict):
+            raise DeploymentError("Deployed profile does not contain the configured target.")
+        for field_name, expected in (
+            ("database", config.model_database),
+            ("schema", config.model_schema),
+            ("role", config.role),
+            ("warehouse", config.warehouse),
         ):
-            raise DeploymentError(
-                "Existing object uses legacy numbered versions. Have its owner explicitly "
-                "migrate it before deployment; this tool never replaces it."
+            if literal(target.get(field_name)).upper() != expected.upper():
+                raise DeploymentError(
+                    f"Deployed model target {field_name} differs from the config."
+                )
+        if command == "retry":
+            run_command(
+                ["snow", "dbt", "copy", live + "target/run_results.json", str(downloaded), *options]
             )
+            try:
+                previous = json.loads((downloaded / "run_results.json").read_text())
+                inherited = previous.get("args", {}) if isinstance(previous, dict) else {}
+            except (OSError, json.JSONDecodeError) as exc:
+                raise DeploymentError(
+                    "Retry needs compatible failed-run artifacts in LIVE target/."
+                ) from exc
+            if not isinstance(inherited, dict):
+                raise DeploymentError("Retry artifacts contain invalid invocation arguments.")
+            fusion = config.dbt_version.startswith("2.")
+            previous_target = inherited.get("target")
+            if (previous_target is not None or not fusion) and previous_target != config.target:
+                raise DeploymentError(
+                    "Retry's inherited target does not match the configured target."
+                )
+            previous_profile = inherited.get("profile")
+            if previous_profile is not None and previous_profile != config.profile:
+                raise DeploymentError("Retry's inherited profile differs from the config.")
+            if not fusion and previous_profile is None and set(profiles) != {config.profile}:
+                raise DeploymentError("Cannot prove Core retry's inherited profile destination.")
+
+
+def execute_project(
+    config: Config,
+    *,
+    command: str = "build",
+    state_from: str | None = None,
+    selection: str | None = None,
+    defer: bool = False,
+    writeback: bool | None = None,
+    temporary_connection: bool = False,
+    apply: bool = False,
+) -> None:
+    invocation = execution_command(
+        config,
+        command=command,
+        state_from=state_from,
+        selection=selection,
+        defer=defer,
+        writeback=writeback,
+        temporary_connection=temporary_connection,
+    )
+    print(
+        f"Execution destination: {config.account}, {config.object_name}; "
+        f"model target {config.model_database}.{config.model_schema}"
+    )
+    object_index = invocation.index(config.object_name)
+    print(f"dbt command: {shlex.join(invocation[object_index + 1 :])}")
+    print(f"Artifact writeback: {config.default_writeback if writeback is None else writeback}")
+    if state_from:
+        print(f"State baseline: last successful build/run from {state_from}")
+    if not apply:
+        print("Dry run: no Snowflake connection or execution. Add --apply to execute.")
+        return
+    options = connection_options(config, temporary_connection)
+    existing = preflight(config, options)
+    if existing is None:
+        raise DeploymentError("Execution target does not exist or is not visible to this role.")
+    confirm_live(existing)
+    if existing.get("dbt_version") != config.dbt_version:
+        raise DeploymentError("Deployed runtime differs from the execution config.")
+    verify_execution_target(config, options, command)
+    if state_from:
+        state = sql_rows(
+            f"SELECT SYSTEM$DBT_GET_LAST_SUCCESSFUL_RUN_TARGET('{state_from}', "
+            "'build,run') AS state",
+            options,
+        )
+        if len(state) != 1 or not isinstance(state[0].get("state"), str) or not state[0]["state"]:
+            raise DeploymentError(
+                "No successful state artifacts found; run the baseline within the last 7 days "
+                "and grant MONITOR."
+            )
+        # Pin the resolved artifacts so another baseline run cannot change the imported state.
+        location = str(state[0]["state"]).replace("'", "''")
+        invocation[invocation.index("--import") + 1] = f"'{location}' AS 'state'"
+    output = run_command(invocation)
+    print(output)
+    print(f"dbt {command} completed successfully.")
 
 
 def show_plan(config: Config, uploaded: list[str]) -> None:
@@ -568,7 +817,11 @@ def show_plan(config: Config, uploaded: list[str]) -> None:
         f"Model target: {config.model_database}.{config.model_schema}; "
         f"profile/target: {config.profile}/{config.target}"
     )
-    print(f"Runtime: {config.dbt_version}; automatic compile: enabled; force replacement: disabled")
+    print(
+        f"Runtime: {config.dbt_version}; automatic compile: {config.auto_compile}; "
+        "force replacement: disabled"
+    )
+    print(f"Default artifact writeback: {config.default_writeback}; object version: LIVE")
     print("Upload files:\n" + "\n".join(f"  {name}" for name in uploaded))
 
 
@@ -582,10 +835,10 @@ def verify_readback(config: Config, rows: list[dict[str, Any]], metadata: dict[s
     expected = {"dbt_version": config.dbt_version, "default_target": config.target}
     if any(str(row.get(key, "")) != value for key, value in expected.items()):
         raise DeploymentError("Deployment readback runtime or target does not match the config.")
-    if str(row.get("default_version", "")).upper() != "LIVE":
-        raise DeploymentError("Deployment readback did not confirm a mutable LIVE version.")
-    if "auto_compile" in row and str(row["auto_compile"]).lower() != "true":
-        raise DeploymentError("Deployment readback did not confirm automatic compilation.")
+    confirm_live(row)
+    for key in ("auto_compile", "default_writeback"):
+        if key in row and str(row[key]).lower() != str(getattr(config, key)).lower():
+            raise DeploymentError(f"Deployment readback {key} does not match the config.")
     if "git-commit" in metadata and "last_deployed_from" in row:
         deployed = row.get("last_deployed_from", {})
         if isinstance(deployed, str):
@@ -607,6 +860,8 @@ def write_receipt(
         "object": config.object_name,
         "dbt_version": config.dbt_version,
         "target": config.target,
+        "auto_compile": config.auto_compile,
+        "default_writeback": config.default_writeback,
         "files": {
             name: hashlib.sha256((prepared / name).read_bytes()).hexdigest()
             for name in uploaded
@@ -680,8 +935,8 @@ def deploy(
             "--dbt-version",
             config.dbt_version,
             "--no-force",
-            "--auto-compile",
-            "--no-default-writeback",
+            "--auto-compile" if config.auto_compile else "--no-auto-compile",
+            "--default-writeback" if config.default_writeback else "--no-default-writeback",
             *options,
         ]
         for integration in config.external_access_integrations:
@@ -714,18 +969,7 @@ def deploy(
             f"target {config.target}, version LIVE, source hashes match."
         )
         if build:
-            run_command(
-                [
-                    "snow",
-                    "dbt",
-                    "execute",
-                    *options,
-                    config.object_name,
-                    "build",
-                    "--target",
-                    config.target,
-                ]
-            )
+            print(run_command(execution_command(config, temporary_connection=temporary_connection)))
             print("dbt build completed successfully.")
 
 
@@ -755,6 +999,18 @@ def parser() -> argparse.ArgumentParser:
     ):
         setup.add_argument(f"--{name.replace('_', '-')}")
     setup.add_argument("--external-access-integration", action="append")
+    setup.add_argument(
+        "--default-writeback",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="Persist generated target/log files in LIVE by default (default: disabled).",
+    )
+    setup.add_argument(
+        "--auto-compile",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="Compile during deployment (default: enabled).",
+    )
     apply = commands.add_parser(
         "deploy", help="Show a local plan; --apply explicitly enables deployment."
     )
@@ -770,6 +1026,31 @@ def parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Use environment authentication instead of a saved local connection.",
     )
+    migration = commands.add_parser(
+        "migrate", help="Review and explicitly migrate only the configured legacy object to LIVE."
+    )
+    execution = commands.add_parser(
+        "run", help="Execute a deployed LIVE project without redeploying its files."
+    )
+    for operation in (migration, execution):
+        operation.add_argument("--config", required=True)
+        operation.add_argument("--apply", action="store_true")
+        operation.add_argument("--temporary-connection", action="store_true")
+    execution.add_argument(
+        "--command",
+        dest="command_name",
+        choices=("build", "compile", "retry", "source-freshness"),
+        default="build",
+    )
+    execution.add_argument("--state-from")
+    execution.add_argument("--select", dest="selection")
+    execution.add_argument("--defer", action="store_true")
+    execution.add_argument(
+        "--writeback",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="Persist this run's target/log files in LIVE (otherwise use config default).",
+    )
     return root
 
 
@@ -778,6 +1059,23 @@ def main(argv: list[str] | None = None) -> int:
     try:
         if args.command == "wizard":
             wizard(args)
+        elif args.command == "migrate":
+            migrate(
+                load_config(args.config),
+                apply=args.apply,
+                temporary_connection=args.temporary_connection,
+            )
+        elif args.command == "run":
+            execute_project(
+                load_config(args.config),
+                command=args.command_name,
+                apply=args.apply,
+                state_from=args.state_from,
+                selection=args.selection,
+                defer=args.defer,
+                writeback=args.writeback,
+                temporary_connection=args.temporary_connection,
+            )
         else:
             deploy(
                 load_config(args.config),

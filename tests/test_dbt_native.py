@@ -281,7 +281,18 @@ class NativeDeploymentTests(unittest.TestCase):
                         ]
                     )
                 elif "SHOW DBT PROJECTS" in query:
-                    output = "[]" if existing_live is None else json.dumps([{"name": "TINY"}])
+                    output = (
+                        "[]"
+                        if existing_live is None
+                        else json.dumps(
+                            [
+                                {
+                                    "name": "TINY",
+                                    "default_version": "LIVE" if existing_live else "VERSION$1",
+                                }
+                            ]
+                        )
+                    )
                 elif "SHOW VERSIONS IN DBT PROJECT" in query:
                     output = json.dumps([{"is_live": existing_live}])
                 else:
