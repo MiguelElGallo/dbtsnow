@@ -24,6 +24,7 @@ The preview makes no Snowflake connection. For prerequisites, wizard prompts, re
 | Compare source with a baseline | [State builds](docs/how-to/state-build.md) |
 | Check source data age | [Source freshness](docs/how-to/check-source-freshness.md) |
 | Look up an option | [Configuration](docs/reference/configuration.md) · [Commands](docs/reference/commands.md) |
+| Give an agent repository context | [Agent skills](docs/how-to/use-agent-skills.md) |
 
 The [documentation home](docs/index.md) separates tutorials, how-to guides, reference, and explanation. See the [screenshot walkthrough](docs/screenshots/README.md) and [validation evidence](docs/validation.md) for real trial results.
 

@@ -55,6 +55,28 @@ Fusion artifacts omit the target name, so retry supplies explicit target/profile
 
 The GitHub deployment workflow passes local `actionlint`. Cloud deployment through GitHub OIDC has not been dispatched; live tests used the authorized local OAuth connection. The separate **Check template** workflow validates the code offline on pushes and pull requests.
 
+## Repository skill checks
+
+The three [repository skills](how-to/use-agent-skills.md) passed skill-creator
+frontmatter validation, UI metadata checks, and local Markdown link checks on
+2026-10-03. Independent review checked routing, source accuracy, and guide clarity;
+its wording suggestions were incorporated.
+
+Fresh agents tried the skills in an isolated copy of the checkout:
+
+| Trial | Observed result |
+| --- | --- |
+| Deploy from a nested working directory | Found the selected root and produced the offline example plan. |
+| Select an invalid checkout | Stopped without switching repositories or running deployment. |
+| Retry a failed build without writeback | Explained missing retry state and previewed a new build without executing it. |
+| Retry Core artifacts with a different target | Rejected the mismatch in an offline fixture; no native execution occurred. |
+| Locate and test Core retry verification | Found implementation, regression coverage, and canonical docs; the focused regression passed. |
+
+The existing 68 tests, Ruff, formatting, ty, and sample preview also passed after
+the skill additions. These trials used an installed Python environment and
+explicit skill files; they did not test automatic discovery across clients,
+OIDC, or a new cloud deployment.
+
 ## Scope
 
 Remote-package behavior is covered by offline contract tests; the live example has no dependencies. OIDC requires the documented GitHub environment and Snowflake service-user setup. Deployment can change object settings before a later failure, and failed model builds can leave changed relations; there is no automatic rollback.

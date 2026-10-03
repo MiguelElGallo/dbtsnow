@@ -18,6 +18,7 @@ Deploy a dbt project as a Snowflake object, then build its models when you choos
 | Build only changed models | [Use baseline state](how-to/state-build.md) |
 | Check whether source data is recent | [Check source freshness](how-to/check-source-freshness.md) |
 | Find run details and logs | [Inspect runs](how-to/inspect-runs.md) |
+| Give an agent the right repository context | [Use the agent skills](how-to/use-agent-skills.md) |
 
 ## Look up a setting
 
