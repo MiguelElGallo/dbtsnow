@@ -2,50 +2,65 @@
 
 [Documentation](../index.md) · [Administrator setup](admin-setup.md)
 
-Use the project administrator's authenticated connection for this guide. The configured `deployment_role` creates and owns the native project. The operator role in `role` owns daily model execution; it stays in the generated profile.
+Deploy a native project using the project administrator's own connection, then grant the operator access to run it. The configured `deployment_role` owns the project; `role` is the operator role used by its dbt profile.
 
 ## Check the handoff
 
-The Snowflake administrator has prepared databases, regular schemas, independent roles, warehouse access, and your identity. Your config names the approved destinations, operator role, project administrator role, and selected connections. Set `auto_compile: false` for separated roles.
+Start with the configuration and identities prepared in the [first-deployment tutorial](../tutorials/first-deployment.md). Confirm these values in `deployment/dev.json`:
 
-For dedicated test users, authenticate as the project administrator user with its own key. Checking `CURRENT_ROLE` in an administrator session alone does not demonstrate this handoff. [First-deployment tutorial](../tutorials/first-deployment.md).
+- The approved account, native project location, and model destination.
+- Independent custom `deployment_role` and operator `role` values.
+- Your deployment connection and, when configured, `deployment_user`.
+- `auto_compile: false` for the separated roles.
+
+Authenticate as the deployment user with its own credentials. Selecting the project administrator role inside a platform administrator's session does not test that user's access.
 
 ## Preview and deploy source
 
 ```sh
 uv run python scripts/dbt_native.py deploy --config deployment/dev.json
+```
+
+Check the account, deployment identity/role, native object, and operator model destination in the offline plan. Then apply the same command:
+
+```sh
 uv run python scripts/dbt_native.py deploy --config deployment/dev.json --apply
 ```
 
-Review the account, deployment identity/role, project location, and operator model destination before applying. Deployment creates or updates the object, then verifies its runtime, ownership, selected target, receipt, and source hashes.
+A successful command prints `Verified deployment:` with the object, runtime, target, and LIVE version. Before reporting success, the wrapper checks ownership, deployed settings, the deployment receipt, and source hashes.
 
-Split-role deployment skips compilation and dependencies, and rejects `--build`. The [generated operator role](../reference/configuration.md#generated-operator-role) uses a fixed literal Jinja value to avoid the pinned CLI trying to assume the operator role during its deployment validation. Keep the deployment user independent; do not grant it the operator role to pass that client check. Operators compile/build afterward. Remote packages still need an approved external-access integration attached to the object. The project administrator and operator each require the integration's appropriate `USAGE` grant.
+Split-role deployment skips compilation and dependency installation, and rejects `--build`. The [generated operator role](../reference/configuration.md#generated-operator-role) uses a fixed literal Jinja value so the pinned CLI can validate the profile without assuming the operator role. Keep the deployment user independent; the operator compiles and builds afterward.
 
-An existing project must be owned by the configured project administrator role. If it belongs to another role, ask the platform owner to review adoption separately; this command never transfers ownership or recreates it. Numbered objects require [migration](migrate-to-live.md) first.
+For remote packages, arrange an approved external-access integration on the object and its required `USAGE` grants for both roles. An existing project must already be owned by the configured project administrator role. Have the platform owner review a different owner separately; deployment does not transfer ownership or recreate the project. [Migrate numbered objects](migrate-to-live.md) before deploying LIVE source.
 
 ## Grant operator access
 
-After the object exists, preview and apply the object-specific handoff:
+After deployment, preview the handoff:
 
 ```sh
 uv run python scripts/dbt_native.py project-access --config deployment/dev.json
+```
+
+Confirm the exact project and operator role, then apply it:
+
+```sh
 uv run python scripts/dbt_native.py project-access --config deployment/dev.json --apply
 ```
 
-The command runs as the project administrator, verifies the object and owner, grants only `USAGE` and `MONITOR` on the configured project to the configured operator role, then reads those grants back. Database/schema/warehouse/data permissions remain the administrator's setup responsibility.
+Expect `Verified project access:` followed by the operator role and project. The command verifies the owner, grants `USAGE` and `MONITOR` on this object, and reads those grants back. The Snowflake administrator supplies database, schema, warehouse, and data access separately.
 
-In a managed-access schema, ask the schema owner or an administrator with `MANAGE GRANTS` to apply the [administrator grant path](admin-setup.md#complete-project-and-viewer-access-after-deployment). The project owner alone cannot grant object access there.
+In a managed-access schema, the schema owner or a role with `MANAGE GRANTS` must use the [administrator grant path](admin-setup.md#complete-project-and-viewer-access-after-deployment). The project owner alone cannot grant access there.
 
-The operator can now [build and inspect runs](run-and-retry.md). Service-user CLI acceptance does not verify a person's Snowsight login; perform the separate browser check using an approved human viewer.
+The operator can now [build the project](run-and-retry.md). For Snowsight, use an approved human viewer and [select the correct primary role](inspect-runs.md#set-up-snowsight-access).
 
 ## Update or recover source
 
-Deployment replaces all LIVE files, including the failed-run artifacts needed by retry. Coordinate the update with the operator before applying. If a source fix is required, deploy the reviewed fix and ask the operator for a new build; retry cannot recover deleted state.
+Coordinate deployments with the operator: replacing LIVE source also removes the artifacts needed by retry. For a source fix, deploy the reviewed change and have the operator run a new build.
 
-To restore earlier source, check out the approved earlier revision and deploy it with the same configured owner. Source rollback does not restore model relations changed by earlier executions. A failure can leave settings/source partially changed; inspect before another attempt.
+To restore earlier source, check out the approved earlier revision and deploy it with the same configured owner. This restores source, not model relations changed by executions. If deployment fails after making changes, inspect the object before another attempt; there is no automatic rollback.
 
 ## Use GitHub
 
-The shipped project-administrator workflow requires a regular object schema; it repeats the owner-controlled access handoff after deployment. Existing managed schemas require [administrator-owned grants](admin-setup.md#complete-project-and-viewer-access-after-deployment) and a reviewed workflow adaptation that omits that owner grant step. Administrator pre-grants alone do not make the default workflow's grant step succeed.
+The [deployment workflow](github-actions.md) uses environment `dev-deploy` and its dedicated project administrator OIDC user. It deploys and verifies source, then grants operator project access. The operator workflow runs models separately.
 
-The project-administrator workflow uses environment `dev-deploy` and its dedicated OIDC user. It deploys and verifies source, then runs the object access handoff. It does not build models. [Configure the two workflows](github-actions.md).
+The shipped deployment workflow requires a regular object schema. For a managed-access schema, arrange administrator-owned grants and review a workflow adaptation that omits the project-owner `project-access` step. Pre-granting access does not let the project owner repeat that grant.

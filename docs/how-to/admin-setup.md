@@ -21,22 +21,27 @@ Save a credentials-free configuration for the agreed account and destinations as
 - `deployment_user` and `operator_user` can bind applied operations to expected usernames.
 - `auto_compile` is `false`; the project administrator does not build models.
 
-Use new database, schema, role, and test-user names for the fresh-resource bootstrap. An existing warehouse is reused. Database and model database can differ; never infer a production destination from these examples.
+Use new database, role, and test-user names for the fresh-resource bootstrap. An existing warehouse is reused. Database and model database can differ; never infer a production destination from these examples.
 
 ## Create dedicated test credentials
 
-The optional test users use key-pair authentication and `TYPE = SERVICE`. Generate two keys in the ignored `.local` directory. Each login gets its own key:
+The optional test users use key-pair authentication and `TYPE = SERVICE`. Generate two keys in a **new** directory beneath ignored `.local`. The directory creation guard prevents this block from overwriting an existing set of keys:
 
 ```sh
 umask 077
-mkdir -p .local/keys
-openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out .local/keys/project-admin.p8
-openssl pkey -in .local/keys/project-admin.p8 -pubout -out .local/keys/project-admin.pub.pem
-openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out .local/keys/operator.p8
-openssl pkey -in .local/keys/operator.p8 -pubout -out .local/keys/operator.pub.pem
+mkdir -p .local
+mkdir .local/dbt-corporate-keys && (
+  set -e
+  openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out .local/dbt-corporate-keys/project-admin.p8
+  openssl pkey -in .local/dbt-corporate-keys/project-admin.p8 -pubout -out .local/dbt-corporate-keys/project-admin.pub.pem
+  openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out .local/dbt-corporate-keys/operator.p8
+  openssl pkey -in .local/dbt-corporate-keys/operator.p8 -pubout -out .local/dbt-corporate-keys/operator.pub.pem
+)
 ```
 
-The bootstrap reads only the public-key files. Keep private keys out of configuration, command output, commits, and evidence. For ongoing service use, follow your organization's secret storage and key-rotation process. [Snowflake key-pair authentication](https://docs.snowflake.com/en/user-guide/key-pair-auth).
+The subshell stops if any key-generation command fails. If `.local/dbt-corporate-keys` already exists, preserve it and choose a new directory for a new pair of identities; do not delete or overwrite it to repeat the recipe.
+
+The bootstrap reads only the public-key files. Keep private keys out of configuration, command output, and commits. For ongoing service use, follow your organization's secret storage and key-rotation process. [Snowflake key-pair authentication](https://docs.snowflake.com/en/user-guide/key-pair-auth).
 
 ## Preview fresh-resource setup
 
@@ -48,9 +53,9 @@ uv run python scripts/dbt_admin.py bootstrap \
   --admin-connection snowflake_admin \
   --admin-role ACCOUNTADMIN \
   --project-admin-user DBT_PROJECT_ADMIN_SVC \
-  --project-admin-public-key-file .local/keys/project-admin.pub.pem \
+  --project-admin-public-key-file .local/dbt-corporate-keys/project-admin.pub.pem \
   --operator-user DBT_OPERATOR_SVC \
-  --operator-public-key-file .local/keys/operator.pub.pem
+  --operator-public-key-file .local/dbt-corporate-keys/operator.pub.pem
 ```
 
 This preview makes no connection. Review the exact account, databases, schemas, roles, users, warehouse, and grants. `ACCOUNTADMIN` is an example approved admin role; the helper verifies the selected account and active admin role before applying.
@@ -61,7 +66,7 @@ Omit both arguments for a test identity if you are not creating that identity. U
 
 Append `--apply` to the same reviewed command. The helper checks that the targeted databases, delegated roles, and requested test users are fresh before provisioning. It refuses collisions rather than adopting existing permissions, replacing users, or changing their keys.
 
-It provisions object/model databases and regular schemas, the independent project administrator and operator roles, warehouse access, and optional test users with `DEFAULT_SECONDARY_ROLES = ()`. The project role gets object-schema creation access; the operator gets project-parent access and model-schema `USAGE`, `CREATE TABLE`, and `CREATE VIEW`. New users receive only their respective delegated role.
+It provisions object/model databases and regular schemas, the independent project administrator and operator roles, warehouse access, and optional test users with `DEFAULT_SECONDARY_ROLES = ()`. The project role gets `CREATE DBT PROJECT` on the object schema; the operator gets project-parent access and model-schema `USAGE`, `CREATE TABLE`, and `CREATE VIEW`. New users receive only their respective delegated role.
 
 Readback checks the provisioned resources and role/user assignments. A later error does not undo earlier Snowflake DDL; inspect partial setup before deciding how to complete it. The helper does not recreate or force-replace resources.
 
@@ -73,15 +78,15 @@ Bootstrap is for fresh resources. For an existing database, warehouse, role, or 
 
 ```sql
 -- Run as the approved administrator after creating/reviewing the two custom roles.
-GRANT USAGE ON DATABASE DEV_DBT_PRJ TO ROLE DBT_PROJECT_ADMIN;
-GRANT USAGE ON SCHEMA DEV_DBT_PRJ.PROJECTS TO ROLE DBT_PROJECT_ADMIN;
-GRANT CREATE DBT PROJECT ON SCHEMA DEV_DBT_PRJ.PROJECTS TO ROLE DBT_PROJECT_ADMIN;
+GRANT USAGE ON DATABASE DBT_CORPORATE_DEV TO ROLE DBT_PROJECT_ADMIN;
+GRANT USAGE ON SCHEMA DBT_CORPORATE_DEV.PROJECTS TO ROLE DBT_PROJECT_ADMIN;
+GRANT CREATE DBT PROJECT ON SCHEMA DBT_CORPORATE_DEV.PROJECTS TO ROLE DBT_PROJECT_ADMIN;
 GRANT USAGE ON WAREHOUSE COMPUTE_WH TO ROLE DBT_PROJECT_ADMIN;
 
-GRANT USAGE ON DATABASE DEV_DBT_PRJ TO ROLE DBT_OPERATOR;
-GRANT USAGE ON SCHEMA DEV_DBT_PRJ.PROJECTS TO ROLE DBT_OPERATOR;
-GRANT USAGE ON SCHEMA DEV_DBT_PRJ.ANALYTICS TO ROLE DBT_OPERATOR;
-GRANT CREATE TABLE, CREATE VIEW ON SCHEMA DEV_DBT_PRJ.ANALYTICS TO ROLE DBT_OPERATOR;
+GRANT USAGE ON DATABASE DBT_CORPORATE_DEV TO ROLE DBT_OPERATOR;
+GRANT USAGE ON SCHEMA DBT_CORPORATE_DEV.PROJECTS TO ROLE DBT_OPERATOR;
+GRANT USAGE ON SCHEMA DBT_CORPORATE_DEV.ANALYTICS TO ROLE DBT_OPERATOR;
+GRANT CREATE TABLE, CREATE VIEW ON SCHEMA DBT_CORPORATE_DEV.ANALYTICS TO ROLE DBT_OPERATOR;
 GRANT USAGE ON WAREHOUSE COMPUTE_WH TO ROLE DBT_OPERATOR;
 
 GRANT ROLE DBT_PROJECT_ADMIN TO USER <EXISTING_PROJECT_ADMIN_USER>;
@@ -113,6 +118,21 @@ Use `ON VIEW` when the relation is a view. The project administrator does not ne
 
 Remote packages require an existing external-access integration. Its creation and network allowlist belong to the administrator. Grant integration `USAGE` to both the project role that attaches it during deployment and the operator role that executes dependencies. [Dependencies](https://docs.snowflake.com/en/user-guide/data-engineering/dbt-projects-on-snowflake-dependencies).
 
+## Validate delegated access
+
+For new test users, authenticate with each user's own key and connection. Check `CURRENT_USER()`, `CURRENT_ROLE()`, and `CURRENT_SECONDARY_ROLES()`; an administrator switching roles does not demonstrate that another user can sign in. The [first-deployment lesson](../tutorials/first-deployment.md#authenticate-as-each-new-user) provides the connection commands.
+
+After project creation and access handoff, confirm a project-administrator deployment and an operator build using those separate logins. To evaluate permission boundaries, use isolated development resources and verify these intended denials:
+
+| Identity | Operations it should lack |
+| --- | --- |
+| Project administrator | Account-level database/role/user creation; model execution through an operator role not assigned to this user; reads of operator data without separate grants |
+| Operator | Account-level database/role/user creation; alteration of another role's project; project grants it has no authority to distribute |
+
+Inspect any unexpected success against direct grants, inherited roles, and grants to `PUBLIC`. The project administrator still has its native object's ownership capabilities; this setup does not remove those. [Role boundaries](../explanation/role-separation.md#what-least-privilege-means-here).
+
+Service-user CLI login, human Snowsight access, and GitHub OIDC are separate authentication paths. Validate only the path you have configured; [GitHub setup](github-actions.md) covers the two workflow identities.
+
 ## Complete project and viewer access after deployment
 
 After the project administrator creates the project, that owner runs [the project access handoff](project-admin.md#grant-operator-access). This grants the configured operator `USAGE` and `MONITOR` on that exact object.
@@ -120,21 +140,25 @@ After the project administrator creates the project, that owner runs [the projec
 In a managed-access schema, the schema owner or an administrator with `MANAGE GRANTS` applies those object grants instead:
 
 ```sql
-GRANT USAGE, MONITOR ON DBT PROJECT DEV_DBT_PRJ.PROJECTS.NATIVE_DBT_EXAMPLE
+GRANT USAGE, MONITOR ON DBT PROJECT DBT_CORPORATE_DEV.PROJECTS.NATIVE_DBT_EXAMPLE
   TO ROLE DBT_OPERATOR;
-SHOW GRANTS ON DBT PROJECT DEV_DBT_PRJ.PROJECTS.NATIVE_DBT_EXAMPLE;
+SHOW GRANTS ON DBT PROJECT DBT_CORPORATE_DEV.PROJECTS.NATIVE_DBT_EXAMPLE;
 ```
 
 For a separate browser viewer, grant access to its chosen primary role after the object exists:
 
 ```sql
-GRANT USAGE ON DATABASE DEV_DBT_PRJ TO ROLE <VIEWER_ROLE>;
-GRANT USAGE ON SCHEMA DEV_DBT_PRJ.PROJECTS TO ROLE <VIEWER_ROLE>;
-GRANT MONITOR ON DBT PROJECT DEV_DBT_PRJ.PROJECTS.NATIVE_DBT_EXAMPLE
+GRANT USAGE ON DATABASE DBT_CORPORATE_DEV TO ROLE <VIEWER_ROLE>;
+GRANT USAGE ON SCHEMA DBT_CORPORATE_DEV.PROJECTS TO ROLE <VIEWER_ROLE>;
+GRANT MONITOR ON DBT PROJECT DBT_CORPORATE_DEV.PROJECTS.NATIVE_DBT_EXAMPLE
   TO ROLE <VIEWER_ROLE>;
-SHOW GRANTS ON DBT PROJECT DEV_DBT_PRJ.PROJECTS.NATIVE_DBT_EXAMPLE;
+SHOW GRANTS ON DBT PROJECT DBT_CORPORATE_DEV.PROJECTS.NATIVE_DBT_EXAMPLE;
 ```
 
 An error naming primary role `ACCOUNTADMIN` also needs this explicit project `MONITOR` grant; `MANAGE GRANTS` allows giving access rather than substituting for the project's viewing requirement. Use the approved primary role in [Snowsight](inspect-runs.md#set-up-snowsight-access) and verify its DAG/history.
+
+## Retire a test setup
+
+When a test setup is no longer needed, have the administrator review removal of its native project, test databases, delegated users, and roles. Reuse of an existing warehouse does not make that warehouse part of the cleanup scope. Retire the corresponding local CLI connections and keys when those identities are no longer used. The deployment wrapper does not remove account resources.
 
 Sources: [dbt privileges and deployment/execution phases](https://docs.snowflake.com/en/user-guide/data-engineering/dbt-projects-on-snowflake-access-control), [CREATE USER](https://docs.snowflake.com/en/sql-reference/sql/create-user), [managed-access grant authority](https://docs.snowflake.com/en/user-guide/security-access-control-privileges).

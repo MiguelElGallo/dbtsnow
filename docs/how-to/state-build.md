@@ -2,25 +2,37 @@
 
 [Documentation](../index.md)
 
-Use the operator identity for a separate native CI project and writable model schema to compare checked-out source with a successful baseline. The administrator prepares the schema/access, and the project administrator deploys the CI object first. State comparison decides which nodes changed; `--defer` lets unchanged upstream references use baseline relations.
+Compare source with a successful baseline using a separate native CI project and writable model schema. The Snowflake administrator prepares access, the project administrator deploys the CI project, and the operator runs the comparison. `--defer` lets unselected references use baseline relations.
 
 ## Prepare the baseline and permissions
 
-This development example uses baseline `DBT_CORPORATE_DEV.PROJECTS.NATIVE_DBT_EXAMPLE` from the [first-deployment tutorial](../tutorials/first-deployment.md). Replace it with your own baseline for a real project.
+This example uses `DBT_CORPORATE_DEV.PROJECTS.NATIVE_DBT_EXAMPLE` from the [first-deployment tutorial](../tutorials/first-deployment.md). Substitute your project's baseline when needed.
 
-The baseline needs a successful `build` or `run` with populated artifacts in the last seven days. Deployment-time compilation does not qualify. Refresh the example baseline with:
+The baseline needs populated artifacts from a successful `build` or `run` in the last seven days. Deployment-time compilation does not qualify. Preview and refresh it with writeback:
 
 ```sh
+uv run python scripts/dbt_native.py run --config deployment/dev.json --command build --writeback
 uv run python scripts/dbt_native.py run --config deployment/dev.json --command build --writeback --apply
 ```
 
-The executing role needs `MONITOR` on a baseline it does not own, plus access to the native CI object and its writable model destination. Deferral also needs `USAGE` on the baseline model database/schema and `SELECT` on relations used by unchanged references. Grant access only to the relevant sources and relations. [Snowflake state/deferral guide](https://docs.snowflake.com/en/user-guide/data-engineering/dbt-projects-on-snowflake-slim-ci-defer-to-prod).
+Confirm the build succeeded before proceeding. The operator needs project `MONITOR` and parent database/schema access for a baseline it does not own. Deferral also needs `USAGE` on the baseline model database/schema and `SELECT` on the relations used by unselected references. See [Snowflake state and deferral](https://docs.snowflake.com/en/user-guide/data-engineering/dbt-projects-on-snowflake-slim-ci-defer-to-prod).
 
-Have the Snowflake administrator prepare `CI_ANALYTICS` and the operator's model privileges through [administrator setup](admin-setup.md#add-project-specific-data-access). Different baseline/CI operator roles need explicit baseline parent access, `MONITOR`, and relation reads. Do not grant deployment ownership merely to retrieve state.
+Have the administrator prepare `CI_ANALYTICS` with the operator's model privileges through [project-specific data access](admin-setup.md#add-project-specific-data-access). Keep these grants scoped to the required sources and relations; state access does not require deployment ownership.
 
 ## Project administrator: create and deploy the CI configuration
 
-Make a separate local configuration for the same approved account and identities. Change `project` to `NATIVE_DBT_CI` and `model_schema` to `CI_ANALYTICS`; preserve `deployment_role`, the operator `role`, both connections, and expected usernames. Set `auto_compile: false` and `default_writeback: false`. Store it at `deployment/ci.json`, choosing a new filename if it already exists.
+Create a separate `deployment/ci.json` from the approved configuration, choosing a fresh filename if it already exists. Preserve the account, roles, connections, and expected usernames. Change these fields in the complete configuration:
+
+```json
+{
+  "project": "NATIVE_DBT_CI",
+  "model_schema": "CI_ANALYTICS",
+  "auto_compile": false,
+  "default_writeback": false
+}
+```
+
+Preview and deploy it, then hand off access:
 
 ```sh
 uv run python scripts/dbt_native.py deploy --config deployment/ci.json
@@ -29,9 +41,11 @@ uv run python scripts/dbt_native.py project-access --config deployment/ci.json
 uv run python scripts/dbt_native.py project-access --config deployment/ci.json --apply
 ```
 
-Review native object `DBT_CORPORATE_DEV.PROJECTS.NATIVE_DBT_CI` and model destination `DBT_CORPORATE_DEV.CI_ANALYTICS`, replacing these example names with the selected configuration. The project administrator deploys without compilation and grants only this CI object's operator access.
+Confirm `Verified deployment:` names `DBT_CORPORATE_DEV.PROJECTS.NATIVE_DBT_CI`, then check `Verified project access:`. The model destination should be `DBT_CORPORATE_DEV.CI_ANALYTICS`. Adjust these example names to your configuration. For a managed object schema, use the [administrator grant path](admin-setup.md#complete-project-and-viewer-access-after-deployment).
 
 ## Operator: run with baseline state
+
+Preview the comparison:
 
 ```sh
 uv run python scripts/dbt_native.py run \
@@ -41,6 +55,11 @@ uv run python scripts/dbt_native.py run \
   --select state:modified+ \
   --defer \
   --no-writeback
+```
+
+Confirm the separate CI project and model destination, then apply the same options:
+
+```sh
 uv run python scripts/dbt_native.py run \
   --config deployment/ci.json \
   --command build \
@@ -51,8 +70,8 @@ uv run python scripts/dbt_native.py run \
   --apply
 ```
 
-The wrapper resolves the last successful build/run target, freezes that artifact path, and imports it at `./imports/state`. Missing state stops execution; it does not fall back to a full build. [State lookup reference](https://docs.snowflake.com/en/sql-reference/functions/system_dbt_get_last_successful_run_target).
+The wrapper freezes the artifact path from the last successful baseline build/run and imports it at `./imports/state`. Missing state stops execution instead of falling back to a full build. See the [state lookup reference](https://docs.snowflake.com/en/sql-reference/functions/system_dbt_get_last_successful_run_target).
 
-If no model source changed, expect no selected nodes. After a model change and another CI deployment, expect the changed model and its dependent nodes to run. State selection does not guarantee a fully populated CI schema; deferral can still read baseline relations.
+`state:modified+` selects changed nodes and their descendants. If the compared manifests contain no selected changes, expect no nodes to run. After changing a model and redeploying the CI source, check the dbt output for that model and its descendants. Deferral can read baseline relations, so this run need not populate every CI relation.
 
-For GitHub, commit the reviewed CI destination as `deployment/dev.json`, have the project administrator run deployment, then have the operator choose **build**, set **state_from** and **select**, and optionally **defer** in the [operation workflow](github-actions.md#operator-run-the-operation-workflow). Disable writeback for state comparisons. Both workflows read `deployment/dev.json`; `deployment/ci.json` is the local example.
+For GitHub, commit the reviewed CI destination as `deployment/dev.json`, deploy it, then choose **build** with **state_from**, **select**, and optionally **defer** in the [operation workflow](github-actions.md#operator-run-the-operation-workflow). Disable writeback for the comparison. Both workflows use `deployment/dev.json`; `deployment/ci.json` is the local example.

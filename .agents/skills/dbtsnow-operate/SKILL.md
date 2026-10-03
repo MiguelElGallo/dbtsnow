@@ -5,7 +5,7 @@ description: Build, compile, retry, inspect runs and logs, check freshness, or u
 
 # Operate a deployed project
 
-Use the user's selected checkout or walk ancestors of this skill to find `pyproject.toml` naming `dbtsnow` and `scripts/dbt_native.py`. Run from that root with the selected configuration. Historical trial accounts are examples rather than defaults.
+Use the user's selected checkout or walk ancestors of this skill to find `pyproject.toml` naming `dbtsnow` and `scripts/dbt_native.py`. Run from that root with the selected configuration. Tutorial account names are examples rather than deployment defaults.
 
 `role`, `connection`, and optional `operator_user` select the operator; deployment fields are reserved for project administration. The generated native profile uses the operator role. Authenticate as that user for two-user validation; administrator role switching does not prove delegated login.
 
@@ -25,7 +25,7 @@ Preview `uv run python scripts/dbt_native.py run --config <config> --command <bu
 
 Applied runs verify account/role, optional expected username, empty secondary roles, deployed runtime/profile, and base model database/schema/role/warehouse. Preserve these checks. Do not redeploy merely to execute a project, switch to an administrator role on denial, or broaden privileges automatically. Route source fixes/migration to project administration and access/data provisioning to the appropriate administrator.
 
-Use scoped history/query logs after failure before another write. Service-user CLI tests do not establish human browser or GitHub OIDC acceptance.
+Use scoped history/query logs after failure before another write. Service-user CLI tests do not establish human browser sign-in or GitHub OIDC authentication.
 
 ## Retry needs failed state
 

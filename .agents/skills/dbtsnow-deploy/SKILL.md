@@ -5,7 +5,7 @@ description: Configure, preview, deploy, grant operator project access, or migra
 
 # Administer and deploy a dbt project
 
-Use the user's selected checkout or walk ancestors of this skill to find `pyproject.toml` naming `dbtsnow` and `scripts/dbt_native.py`. Run from its root with the selected configuration. Historical accounts and tutorial role names are examples rather than routing defaults.
+Use the user's selected checkout or walk ancestors of this skill to find `pyproject.toml` naming `dbtsnow` and `scripts/dbt_native.py`. Run from its root with the selected configuration. Tutorial account and role names are examples rather than routing defaults.
 
 Read [project administration](../../../docs/how-to/project-admin.md). Load [configuration](../../../docs/reference/configuration.md) for fields/packaging, [migration](../../../docs/how-to/migrate-to-live.md) for numbered objects, or [GitHub identities](../../../docs/how-to/github-actions.md) for workflow setup. Platform database/role/user creation belongs to [administrator setup](../../../docs/how-to/admin-setup.md).
 

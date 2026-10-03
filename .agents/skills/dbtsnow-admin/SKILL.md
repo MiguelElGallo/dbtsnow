@@ -5,7 +5,7 @@ description: Prepare Snowflake databases, schemas, independent project-admin and
 
 # Administer dbtsnow access
 
-Use the user's selected checkout or walk ancestors of this skill to find `pyproject.toml` naming `dbtsnow` and `scripts/dbt_admin.py`. Run from that root with the selected project config and approved administrator connection/role. Historical accounts, role names, and screenshots are examples rather than defaults.
+Use the user's selected checkout or walk ancestors of this skill to find `pyproject.toml` naming `dbtsnow` and `scripts/dbt_admin.py`. Run from that root with the selected project config and approved administrator connection/role. Tutorial account and role names are examples rather than deployment defaults.
 
 Read [administrator setup](../../../docs/how-to/admin-setup.md) for provisioning and [role separation](../../../docs/explanation/role-separation.md) for the handoff. Look up exact fields/flags in [configuration](../../../docs/reference/configuration.md) and [commands](../../../docs/reference/commands.md#administrator-bootstrap).
 
@@ -25,6 +25,6 @@ Precreate model schemas. `--allow-model-schema-creation` is an explicit wider op
 
 ## Validate the handoff
 
-Authenticate separately as each new test user, verify current user/primary role and no secondary roles, then use project-admin deployment/access and operator execution. Read [first deployment](../../../docs/tutorials/first-deployment.md) for this sequence. Administrator role switching alone does not validate new user login. Service-user CLI results do not establish human Snowsight or GitHub OIDC acceptance.
+Authenticate separately as each new test user, verify current user/primary role and no secondary roles, then use project-admin deployment/access and operator execution. Read [first deployment](../../../docs/tutorials/first-deployment.md) for this sequence. Administrator role switching alone does not validate new user login. Service-user CLI results do not establish human Snowsight sign-in or GitHub OIDC authentication.
 
 Project access grants follow object creation. In a regular schema, the project owner uses `project-access`; managed schemas route grant authority to the schema owner or administrator. Hand subsequent source work to `dbtsnow-deploy` and daily execution to `dbtsnow-operate`. This skill itself adds no cloud/publication authorization.

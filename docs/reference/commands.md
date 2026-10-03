@@ -142,7 +142,7 @@ Retry accepts no selector or state import. It reads the prior `target/run_result
 - Fusion `2.*` retry receives the configured `--target` and `--profile` explicitly, including when artifacts omit them.
 - Core `1.*` retry inherits its target. A missing/different recorded target is rejected; a recorded profile must match. If its profile is absent, the deployed profile file must contain only the configured profile.
 
-Enabling writeback only on retry cannot recover missing failed-run artifacts. Earlier Fusion preview testing returned an error when no failed nodes remained; use retry for an actual failed invocation. See [run and retry](../how-to/run-and-retry.md).
+Enabling writeback only on retry cannot recover missing failed-run artifacts. Retry is intended for a failed invocation with recorded runnable nodes. See [run and retry](../how-to/run-and-retry.md).
 
 `source-freshness` maps to native `source freshness`. It supports selection and writeback overrides, but no state import or deferral. The project must define dbt sources to assess freshness.
 

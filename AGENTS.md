@@ -21,7 +21,7 @@ how to keep the administrator, project administrator, and operator tasks scoped.
 
 Run from this repository root with the user's selected configuration.
 `deployment/example.json` is an offline corporate example with placeholders.
-Tutorial names and screenshot results are examples, not deployment defaults.
+Tutorial names are examples, not deployment defaults.
 Do not print credentials or commit local authentication files. Real local settings
 belong in ignored paths; GitHub needs a reviewed non-secret `deployment/dev.json`
 committed explicitly.
@@ -51,6 +51,9 @@ text/path lookup and available symbol navigation for focused bodies. The maintai
 skill maps entrypoints and validation commands.
 
 Keep tutorials, task guides, reference, and explanation in their Diátaxis directories.
+Keep internal plans, peer-review notes, validation reports, test-account details, and
+execution transcripts in ignored `.local/` storage. Do not add them to public docs.
+Put reusable user guidance in its canonical page instead of linking a work diary.
 Link canonical administrator setup instead of copying database/role/user grant SQL
 into operating guides. Skills do not authorize publication, cloud execution, or
 privilege changes; use the existing task authorization and distinguish offline,

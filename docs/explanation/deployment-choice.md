@@ -2,7 +2,7 @@
 
 [Documentation](../index.md)
 
-Researched against official Snowflake documentation on **2026-10-03**. Scope: deploying the native schema-level `DBT PROJECT` object and its source files.
+This template uses Snowflake CLI to deliver local dbt source to a native `DBT PROJECT` object. GitHub Actions provides a reviewed commit and separate identities for deployment and operation.
 
 ## Recommendation
 
@@ -33,7 +33,7 @@ Sources: [CLI deploy flags](https://docs.snowflake.com/en/developer-guide/snowfl
 
 ## Versions and rollback
 
-Pin Snowflake CLI **3.28.0**, released in September 2026. The default native runtime is **Fusion 2.0.0**; **Core 1.11.11** is also offered. dbt v2.0 reached general availability on September 16, 2026. The selected account confirmed support for `2.0.0` on October 3, 2026, while Snowflake's published runtime table still listed preview builds. The account's `SYSTEM$SUPPORTED_DBT_VERSIONS()` result is authoritative for availability, and deployment checks it before applying.
+The template pins Snowflake CLI **3.28.0** and defaults to **dbt Fusion 2.0.0**. Explicit **Core 1.11.11** configurations are also supported. Pinning makes the deployment interface and runtime choice predictable. Account availability can differ from the published runtime table; deployment checks `SYSTEM$SUPPORTED_DBT_VERSIONS()` before applying.
 
 Sources: [CLI release](https://github.com/snowflakedb/snowflake-cli/releases/tag/v3.28.0), [supported runtimes](https://docs.snowflake.com/en/user-guide/data-engineering/dbt-projects-on-snowflake-dbt-core-versions), [dbt v2.0 release](https://docs.getdbt.com/blog/dbt-v2-is-ga).
 
@@ -43,12 +43,10 @@ For a live object, rollback means redeploying a known earlier Git commit. Projec
 
 ## Account compatibility
 
-The live trial object reported `LIVE`, its runtime, and its default target, but omitted the documented `last_deployed_from`, `auto_compile`, and `default_writeback` fields. Treat unavailable metadata as an account capability difference; do not enable account features to fill it in automatically.
+Native metadata availability can vary by account. The wrapper verifies the exposed fields and checks deployed source independently through its receipt and file hashes. It does not enable account features to obtain additional metadata.
 
 Snowflake supports downloading files from `snow://dbt/<database>.<schema>.<project>/versions/live/` with [`snow dbt copy`](https://docs.snowflake.com/en/developer-guide/snowflake-cli/command-reference/dbt-commands/copy). This provides a source-content verification path when native commit metadata is unavailable. Compare downloaded source files with the exact prepared deployment snapshot; generated runtime files can be additional output.
 
-## Evidence and limits
+## Upload permissions
 
 CLI uploads through a temporary stage. The template therefore does not add permanent-stage creation privileges just for the upload. Sources: [pinned CLI implementation](https://raw.githubusercontent.com/snowflakedb/snowflake-cli/v3.28.0/src/snowflake/cli/_plugins/dbt/manager.py), [CREATE STAGE permissions](https://docs.snowflake.com/en/sql-reference/sql/create-stage).
-
-The [validation record](../validation.md) describes independent reviews and the live trial tests. The [documentation review](../documentation-review.md) records the separate architecture, clarity, and source-accuracy passes.

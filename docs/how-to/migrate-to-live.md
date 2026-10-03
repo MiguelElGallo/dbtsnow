@@ -2,15 +2,15 @@
 
 [Documentation](../index.md)
 
-Use the project administrator's own connection for an existing native dbt object whose default version is numbered. In split configurations, `deployment_role`, `deployment_connection`, and optional `deployment_user` select this identity; `role` remains the operator/profile role. Newly opted-in objects use LIVE already. [How LIVE works](../explanation/live-version.md).
+Migrate an existing native project's numbered default version to LIVE using its project administrator connection. In a split configuration, `deployment_role`, `deployment_connection`, and optional `deployment_user` select this identity. The configured `role` stays the operator/profile role.
 
 ## Before you start
 
-- Use a saved configuration naming the **existing** object and its owning project administrator role. The wrapper requires that configured ownership before mutation.
-- The account must have the `2026_06` bundle or the separate single-live-version feature enabled.
-- Back up any numbered source versions you need. Migration makes them inaccessible.
+- Use a saved configuration naming the existing object and its owning project administrator role.
+- Ask the Snowflake administrator to confirm that the `2026_06` bundle or the separate single-live-version feature is enabled.
+- Back up numbered source versions you need; migration makes them inaccessible.
 
-The template never enables an account bundle. Migration preserves the object's identity, grants, task references, and execution history. [Snowflake migration reference](https://docs.snowflake.com/en/sql-reference/functions/system_migrate_dbt_project).
+New projects already opted into LIVE do not need migration. The wrapper does not enable account bundles. Migration preserves the object's identity, grants, task references, and execution history. See [how LIVE works](../explanation/live-version.md) and [Snowflake migration](https://docs.snowflake.com/en/sql-reference/functions/system_migrate_dbt_project).
 
 ## Review the migration
 
@@ -18,7 +18,7 @@ The template never enables an account bundle. Migration preserves the object's i
 uv run python scripts/dbt_native.py migrate --config deployment/dev.json
 ```
 
-The preview prints the account, role, object, and `SYSTEM$MIGRATE_DBT_PROJECT` statement. It makes no Snowflake connection.
+Confirm the account, project administrator identity/role, object, and `SYSTEM$MIGRATE_DBT_PROJECT` statement in this offline plan.
 
 ## Apply it to that object
 
@@ -26,8 +26,8 @@ The preview prints the account, role, object, and `SYSTEM$MIGRATE_DBT_PROJECT` s
 uv run python scripts/dbt_native.py migrate --config deployment/dev.json --apply
 ```
 
-The wrapper verifies the account, project administrator role, optional expected username, secondary-role exclusion, and ownership, inspects the existing version, then migrates and reads back LIVE plus the previously exposed object metadata. If it is already LIVE, the result is `Already LIVE; no migration performed.`
+The wrapper verifies the caller and configured ownership, inspects the default version, migrates it, then reads back LIVE and the previously exposed object metadata. Expect `Verified migration:` on success. An already migrated project reports `Already LIVE; no migration performed.`
 
-If ownership or feature prerequisites are missing, resolve the server error with your administrator. If the migration happened but readback failed, inspect the object before retrying; there is no automatic reversal.
+If ownership or feature prerequisites prevent migration, ask the administrator to resolve them. If migration occurred but readback failed, inspect the object before another attempt; there is no automatic reversal.
 
-After a verified migration, deploy source with the [normal deployment command](../reference/commands.md#deploy). Migration is deliberately separate from the GitHub deployment workflow.
+After verification, use [normal deployment](project-admin.md#preview-and-deploy-source) to update source. Migration is a separate command from the GitHub deployment workflow.

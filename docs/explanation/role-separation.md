@@ -12,14 +12,14 @@ A platform team can set up a dbt project once without giving its day-to-day user
 
 These names are examples. The wrappers use the account, roles, users, and destinations in the selected configuration. Neither delegated role inherits the other.
 
+## The handoff
+
+Setup comes first, then the project upload, then execution. Each person signs in with their own user. The arrows show the order of the work:
+
 ```mermaid
 flowchart LR
-    A[Snowflake administrator] -->|Provision and assign| P[Project administrator identity]
-    A -->|Provision and assign| O[Operator identity]
-    P -->|Deploy source and own| D[Native DBT PROJECT]
-    P -->|Grant USAGE and MONITOR| O
-    O -->|Compile build retry inspect| D
-    D -->|Operator profile role| M[Approved model schema]
+    A["Snowflake admin<br/>Sets up access"] -->|Setup ready| P["Project admin<br/>Uploads the project"]
+    P -->|Project ready| O["Operator<br/>Runs it and checks results"]
 ```
 
 ## The object owner and runtime role differ
@@ -30,7 +30,7 @@ The administrator grants the project role `CREATE DBT PROJECT` on the object sch
 
 Deployment normally has a compilation phase, and that phase uses the uploaded profile's role. Split-role configurations therefore require `auto_compile: false` and reject `deploy --build`. The project administrator delivers source; an operator performs the next compile or build. The deployment user does not need the operator role to complete deployment. [Deployment phases](https://docs.snowflake.com/en/user-guide/data-engineering/dbt-projects-on-snowflake-access-control).
 
-For SQL and CLI executions, Snowflake also restricts the profile role's actions to privileges available to the calling user. A profile naming `DBT_OPERATOR` is insufficient if the deployment user has never been assigned that role. Test with two actual authenticated users to demonstrate this boundary.
+For SQL and CLI executions, Snowflake also restricts the profile role's actions to privileges available to the calling user. A profile naming `DBT_OPERATOR` is insufficient if the deployment user has never been assigned that role. Each user must authenticate through its own connection for the intended responsibility.
 
 The CLI is told `--secondary-roles NONE` on each invocation. This avoids silently combining privileges from other assigned roles. Primary-role inheritance and grants to `PUBLIC` still affect access; the platform administrator remains responsible for their role design. [CLI secondary-role option](https://docs.snowflake.com/en/release-notes/clients-drivers/snowflake-cli-2026) · [Access-control model](https://docs.snowflake.com/en/user-guide/security-access-control-overview).
 
@@ -48,6 +48,6 @@ The fresh-resource bootstrap creates regular schemas. Their project owner can gr
 
 ## Compatibility and adoption
 
-A configuration without `deployment_role` retains the original single-role behavior. Its `role` is both owner/caller and runtime role, and it may use automatic compilation or `deploy --build`. Existing objects, roles, users, and data are not migrated by adding new documentation or running an offline preview.
+A configuration without `deployment_role` retains the original single-role behavior. Its `role` is both owner/caller and runtime role, and it may use automatic compilation or `deploy --build`. An offline preview does not change existing objects, roles, users, or data.
 
 To adopt separation, prepare independent custom roles and identities, add `deployment_role` and the selected connections/users, and disable automatic compilation. An existing project must already be owned by the intended project administrator; arrange any necessary ownership change as a separately reviewed administrator action. The wrapper never transfers ownership, recreates a project, or widens IAM automatically. See [administrator setup](../how-to/admin-setup.md) and [project administration](../how-to/project-admin.md).

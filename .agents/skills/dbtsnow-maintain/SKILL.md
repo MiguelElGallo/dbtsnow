@@ -23,7 +23,7 @@ Read [README](../../../README.md) and [documentation home](../../../docs/index.m
 
 `tests/test_dbt_native.py` covers configuration, packaging, wizard, and deployment. `tests/test_live_version.py` covers LIVE migration/execution/state/retry behavior. `tests/test_roles.py` covers separated identities, strict generated operator-role expressions, ownership, and project-access handoff. `scripts/dbt_admin.py` provisions fresh resources; its tests cover offline planning, collisions, least-privilege SQL, and readback. `.github/workflows/checks.yml` runs local checks; `deploy.yml` and `operate.yml` are separately authenticated manual cloud jobs sharing concurrency. `example/` is the small native project; `deployment/example.json` uses placeholders, and real local configs are ignored.
 
-`CLI_VERSION`, `DEFAULT_DBT_VERSION`, `pyproject.toml`, and `uv.lock` are authoritative for pinned versions. Account runtime availability remains a live preflight check. Do not infer current acceptance from screenshots or hardcode historical test counts into new guidance.
+`CLI_VERSION`, `DEFAULT_DBT_VERSION`, `pyproject.toml`, and `uv.lock` are authoritative for pinned versions. Account runtime availability remains a live preflight check. Do not hardcode historical test counts or account-specific results into user guidance.
 
 ## Preserve the contracts
 
@@ -45,7 +45,7 @@ uv run python scripts/dbt_native.py deploy --config deployment/example.json
 
 For workflow edits, run `actionlint` when available. Apply these gates to code/workflow changes; documentation-only changes need relevant links, examples, and skill metadata checks instead of unnecessary cloud runs. Report unavailable checks rather than calling them passed.
 
-Keep documentation in its Diátaxis home: `docs/tutorials/` for learning, `docs/how-to/` for tasks, `docs/reference/` for exact interfaces, `docs/explanation/` for rationale. Use short runnable steps and visible checkpoints as in the existing FastAPI-style guides. Older `docs/research.md`, `docs/live-version.md`, and `docs/github-actions.md` are compatibility links, not duplicate manuals. Request independent review for material behavior or documentation changes when the task calls for it.
+Keep documentation in its Diátaxis home: `docs/tutorials/` for learning, `docs/how-to/` for tasks, `docs/reference/` for exact interfaces, `docs/explanation/` for rationale. Use short runnable steps and visible checkpoints as in the existing FastAPI-style guides. Keep internal plans, peer-review notes, validation reports, account/query details, and transcripts in ignored `.local/` storage; do not publish them as documentation. Put reusable guidance in its canonical page and link that page. Request independent review for material behavior or documentation changes when the task calls for it.
 
 For skill edits, validate frontmatter with the available skill-creator validator and independently test realistic agent behavior when deployment/operation instructions change. Keep skills concise and link canonical docs; do not duplicate the wrapper in new helpers.
 

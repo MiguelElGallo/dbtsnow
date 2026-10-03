@@ -2,7 +2,7 @@
 
 [Documentation](../index.md) · Next: [Deploy your first project](first-deployment.md)
 
-In this lesson, you will inspect the included dbt model and produce a deployment plan. The preview does not connect to Snowflake or create cloud objects.
+In this lesson, we will inspect one dbt model and produce its deployment plan. We will use the included configuration without connecting to Snowflake.
 
 ## Get the project
 
@@ -14,7 +14,7 @@ cd dbtsnow
 uv sync --frozen
 ```
 
-Run the remaining commands from this repository directory.
+Run the remaining commands from this repository directory. When synchronization finishes, the project's Python environment is ready.
 
 ## Read the model
 
@@ -24,19 +24,19 @@ Open `example/models/deployment_check.sql`:
 select 1 as id, 'Native dbt deployment works' as message
 ```
 
-The project builds this query as a view. `example/models/schema.yml` adds two tests: the `id` must be present and unique.
+This query will become a view with one row. Open `example/models/schema.yml` too: it adds two tests requiring `id` to be present and unique.
 
-## Preview the deployment
+## Produce the plan
 
 ```sh
 uv run python scripts/dbt_native.py deploy --config deployment/example.json
 ```
 
-Confirm these entries in the plan:
+The command prints a deployment plan. Find these entries:
 
-| Entry | Example value |
+| Entry | Value |
 | --- | --- |
-| Account | `MYORG-MYACCOUNT`, an offline placeholder |
+| Account | `MYORG-MYACCOUNT` |
 | Project administrator role | `DBT_PROJECT_ADMIN` |
 | Operator/profile role | `DBT_OPERATOR` |
 | Native project | `DEV_DBT_PRJ.PROJECTS.NATIVE_DBT_EXAMPLE` |
@@ -45,14 +45,18 @@ Confirm these entries in the plan:
 | Runtime | `2.0.0` |
 | Automatic compilation / default writeback | Both disabled |
 
-The separate expected users are placeholders for dedicated project-admin/operator identities. They do not authenticate during this preview. The runtime shown comes from the pinned sample configuration; force replacement remains disabled.
+Notice the two destinations: `PROJECTS` holds the native project; `ANALYTICS` receives the model view. The project administrator delivers source, and the operator builds the model later.
 
-The upload list contains the project, its model and tests, a generated native profile, and a deployment receipt. The final line confirms this is a dry run.
+## Check the upload list
 
-`MYORG-MYACCOUNT` is a placeholder in the sample configuration. Keep this lesson as a preview; the next lesson creates a configuration for your own account.
+The list includes the project definition, its model and tests, a generated native profile, and a deployment receipt. The profile carries the model destination and operator role; it contains no login credentials.
 
-## Check what you learned
+The final line should be:
 
-The plan names two locations: `PROJECTS` stores the native dbt object, while `ANALYTICS` receives model output. You have inspected what will be uploaded and where it will go.
+```text
+Dry run: no Snowflake connection or cloud writes. Add --apply to deploy.
+```
 
-Continue with [your first live deployment](first-deployment.md).
+`MYORG-MYACCOUNT` and the expected usernames are placeholders. Keep this configuration for offline previews; it cannot establish authentication, privileges, or runtime availability in your account.
+
+We have inspected what will be uploaded and where it will go. Continue with [your first deployment](first-deployment.md) to prepare a real account and build the view.

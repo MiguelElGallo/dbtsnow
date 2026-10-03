@@ -32,6 +32,6 @@ This preview makes no Snowflake connection. [Deploy your first project](docs/tut
 | Look up a setting or option | [Configuration](docs/reference/configuration.md) · [Commands](docs/reference/commands.md) |
 | Give an agent repository context | [Four repository skills](docs/how-to/use-agent-skills.md) |
 
-[Documentation](docs/index.md) follows Diátaxis. [Earlier screenshots](docs/screenshots/README.md) record the original single-role setup; [validation evidence](docs/validation.md) distinguishes those results from the role-split checks.
+[Browse the documentation](docs/index.md) for tutorials, task guides, reference, and explanations.
 
 Snowflake CLI **3.28.0** uploads and verifies source. The default native runtime is **dbt Fusion 2.0.0**; Core **1.11.11** is also offered. Account runtime availability is checked before applying; see [configuration](docs/reference/configuration.md). New source replaces all LIVE files, including retry artifacts. Existing single-role configurations remain supported; adopting separate roles is an explicit setup change.
