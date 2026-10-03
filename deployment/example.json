@@ -1,0 +1,18 @@
+{
+  "source": "../example",
+  "connection": null,
+  "account": "MYORG-MYACCOUNT",
+  "database": "DEV_DBT_PRJ",
+  "object_schema": "PROJECTS",
+  "project": "NATIVE_DBT_EXAMPLE",
+  "role": "DBT_DEPLOYER",
+  "warehouse": "COMPUTE_WH",
+  "model_database": "DEV_DBT_PRJ",
+  "model_schema": "ANALYTICS",
+  "profile": "native_dbt_example",
+  "target": "dev",
+  "dbt_version": "2.0.0-preview.210",
+  "external_access_integrations": [],
+  "auto_compile": true,
+  "default_writeback": false
+}

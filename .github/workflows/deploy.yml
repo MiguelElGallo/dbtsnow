@@ -1,0 +1,91 @@
+name: Deploy native dbt
+
+on:
+  workflow_dispatch:
+    inputs:
+      build:
+        description: Build and test models after deploying (writes to the dbt target)
+        type: boolean
+        required: true
+        default: false
+      state_from:
+        description: Optional baseline DB.SCHEMA.PROJECT for a state-based build
+        type: string
+        default: ''
+      select:
+        description: Optional single dbt selector (for example state:modified+)
+        type: string
+        default: ''
+      defer:
+        description: Resolve unbuilt refs using baseline state (requires state_from)
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: native-dbt-dev
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: dev
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      SNOWFLAKE_ACCOUNT: ${{ vars.SNOWFLAKE_ACCOUNT }}
+      SNOWFLAKE_USER: ${{ vars.SNOWFLAKE_USER }}
+      BUILD_MODELS: ${{ inputs.build }}
+      STATE_FROM: ${{ inputs.state_from }}
+      DBT_SELECTION: ${{ inputs.select }}
+      DEFER_MODELS: ${{ inputs.defer }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@94527f2e458b27549849d47d273a16bec83a01e9 # v7
+        with:
+          version: '0.12.17'
+          python-version: '3.12'
+      - run: uv sync --frozen
+      - name: Run local gates before authenticating
+        run: |
+          uv run ruff check .
+          uv run ruff format --check .
+          uv run ty check
+          uv run python -m unittest discover -s tests -v
+          uv run python scripts/dbt_native.py deploy --config deployment/dev.json
+          if [[ "$BUILD_MODELS" == "true" ]]; then
+            args=(run --config deployment/dev.json --command build)
+            if [[ -n "$STATE_FROM" ]]; then args+=(--state-from "$STATE_FROM" --no-writeback); fi
+            if [[ -n "$DBT_SELECTION" ]]; then args+=(--select "$DBT_SELECTION"); fi
+            if [[ "$DEFER_MODELS" == "true" ]]; then args+=(--defer); fi
+            uv run python scripts/dbt_native.py "${args[@]}"
+          elif [[ -n "$STATE_FROM" || -n "$DBT_SELECTION" || "$DEFER_MODELS" == "true" ]]; then
+            echo 'Enable build to use state_from, select, or defer.' >&2
+            exit 1
+          fi
+      - uses: snowflakedb/snowflake-actions@1160898243c351349621a6c2bac2e455ab1077b2 # v3
+        with:
+          cli-version: '3.28.0'
+          use-oidc: true
+          default-config-file-path: .github/no-local-connection.toml
+      - name: Deploy and verify the native object
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$SNOWFLAKE_ACCOUNT"
+          test -n "$SNOWFLAKE_USER"
+          uv run python scripts/dbt_native.py deploy --config deployment/dev.json --temporary-connection --apply
+          if [[ "$BUILD_MODELS" == "true" ]]; then
+            args=(run --config deployment/dev.json --command build --temporary-connection --apply)
+            if [[ -n "$STATE_FROM" ]]; then args+=(--state-from "$STATE_FROM" --no-writeback); fi
+            if [[ -n "$DBT_SELECTION" ]]; then args+=(--select "$DBT_SELECTION"); fi
+            if [[ "$DEFER_MODELS" == "true" ]]; then args+=(--defer); fi
+            uv run python scripts/dbt_native.py "${args[@]}"
+          fi

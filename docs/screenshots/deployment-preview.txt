@@ -1,0 +1,11 @@
+Account: VAYNIMM-KP67615; role: DEV_DBT_PRJ_DEPLOYER; warehouse: COMPUTE_WH
+DBT PROJECT: dev_dbt_prj.PROJECTS.native_dbt_example
+Model target: dev_dbt_prj.ANALYTICS; profile/target: native_dbt_example/dev
+Runtime: 2.0.0-preview.210; automatic compile: enabled; force replacement: disabled
+Upload files:
+  dbt_project.yml
+  dbt_projects_profiles.yml
+  models/deployment_check.sql
+  models/schema.yml
+  deployment_receipt.json
+Dry run: no Snowflake connection or cloud writes. Add --apply to deploy.

@@ -1,0 +1,12 @@
+.venv/
+__pycache__/
+.ruff_cache/
+.local/
+deployment/*.json
+!deployment/example.json
+target/
+logs/
+dbt_packages/
+.env
+*.pem
+*.p8
