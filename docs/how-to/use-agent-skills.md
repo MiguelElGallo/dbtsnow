@@ -2,47 +2,51 @@
 
 [Documentation](../index.md)
 
-Use these skills to give an agent the right starting point for this repository.
-They reuse the Python wrapper and canonical docs; no global skill installation is needed.
+Choose a repository skill to give an agent the right starting point. The skills use the Python wrapper and canonical docs; they need no global installation.
 
 ## Open the checkout
 
-Open a clone of `dbtsnow` as the agent's working directory. Codex discovers
-`.agents/skills` from the current directory through its repository ancestors.
-Use `/skills` or type `$` to select a skill; restart Codex if a newly added skill
-does not appear. [Codex skill discovery](https://learn.chatgpt.com/docs/build-skills).
+Open a clone of `dbtsnow` as the agent's working directory. Codex discovers `.agents/skills` from the current directory through its repository ancestors. Use `/skills` or type `$` to select a skill; restart Codex if a newly added skill does not appear. See [Codex skill discovery](https://learn.chatgpt.com/docs/build-skills).
 
-Other agent tools can read [AGENTS.md](../../AGENTS.md) and the relevant `SKILL.md`
-directly. Automatic discovery depends on the client. Keep the skill with this
-checkout: its relative links and commands depend on the repository's docs and code.
+Other agent tools can read [AGENTS.md](../../AGENTS.md) and the relevant `SKILL.md` directly. Automatic discovery depends on the client. Keep the skills with this checkout because their links and commands depend on its docs and code.
 
 ## Choose one task
 
 | Skill | Use it for |
 | --- | --- |
-| [`dbtsnow-deploy`](../../.agents/skills/dbtsnow-deploy/SKILL.md) | Wizard configuration, offline previews, native deployment, GitHub setup |
-| [`dbtsnow-operate`](../../.agents/skills/dbtsnow-operate/SKILL.md) | Existing project runs, retry, logs, state, freshness, migration |
+| [`dbtsnow-admin`](../../.agents/skills/dbtsnow-admin/SKILL.md) | Administrator provisioning, independent roles/users, authentication handoff |
+| [`dbtsnow-deploy`](../../.agents/skills/dbtsnow-deploy/SKILL.md) | Project administrator configuration, source delivery, project access, migration, deployment workflow |
+| [`dbtsnow-operate`](../../.agents/skills/dbtsnow-operate/SKILL.md) | Operator runs, retry, logs, state, freshness, operation workflow |
 | [`dbtsnow-maintain`](../../.agents/skills/dbtsnow-maintain/SKILL.md) | Code navigation, changes, tests, documentation, review |
 
-For a first offline check, give the agent this prompt:
+For an administrator setup preview, supply the selected configuration and the connection intended for a later apply:
+
+```text
+Use $dbtsnow-admin with deployment/dev.json to preview fresh-resource setup.
+Plan two service users with separate public keys and independent roles.
+My administrator connection is snowflake_admin with role ACCOUNTADMIN.
+Keep this preview offline.
+```
+
+Expect the exact resources, roles, users, and grants in the plan. Bootstrap accepts public keys; keep private keys outside its input. Authenticate as each provisioned user for the [role handoff](admin-setup.md#validate-delegated-access).
+
+For a first deployment preview:
 
 ```text
 Use $dbtsnow-deploy to preview deployment/example.json.
-Show the native object and model destination. Keep this offline.
+Show both delegated roles and the native object/model destination. Keep this offline.
 ```
 
-Expect a deployment plan and an explanation that account permissions and runtime
-availability have not been verified. The placeholder account must not become a real destination.
+Expect an offline deployment plan. The sample has account placeholders; use a reviewed configuration for a real deployment. An offline preview cannot confirm account permissions or available runtimes.
 
-For an existing project, supply your selected configuration:
+For an operator investigation:
 
 ```text
-Use $dbtsnow-operate with .local/dev.json to investigate my failed build.
+Use $dbtsnow-operate with deployment/dev.json to investigate my failed build.
 Check whether retry is possible. Use read-only inspection; do not execute or redeploy.
 ```
 
-The agent should inspect failed-run persistence and destination compatibility before
-proposing retry. If artifacts are missing, enabling writeback now cannot recover them.
+Expect the agent to check persisted failed artifacts and destination compatibility before proposing retry. Enabling writeback now cannot recover missing artifacts from the earlier failure.
 
 For repository work:
 
@@ -51,14 +55,4 @@ Use $dbtsnow-maintain to find how retry target verification works.
 Explain the relevant code, tests, and documentation before changing anything.
 ```
 
-## Check a skill change
-
-Keep instructions short and link the applicable guide. Validate each skill's YAML
-frontmatter and `agents/openai.yaml` metadata with your available skill tooling.
-For deployment or operation changes, have an independent agent try an offline
-preview and a failure case in an isolated checkout. Check its actual commands and
-results, not just whether it repeats the instructions.
-
-Skill metadata and offline agent tests do not verify cloud authentication,
-automatic discovery in every client, or a GitHub deployment. See
-[validation evidence](../validation.md) for the repository's recorded system tests.
+Choose the skill for the next task when responsibility changes: administrator setup, project administrator deployment, then operator execution. The skill guides the work; your request determines which actions the agent may perform.

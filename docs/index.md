@@ -1,35 +1,55 @@
-# Native dbt deployment, step by step
+# Native dbt projects on Snowflake
 
-Deploy a dbt project as a Snowflake object, then build its models when you choose. Start with the included one-view example and use the task guides as your project grows.
+Deploy reviewed dbt source and run models through separate Snowflake identities. Start with your responsibility, or follow the tutorials to learn the complete setup.
 
-## Start here
-
-1. [Preview the example](tutorials/preview-the-example.md). Learn the deployment plan without a Snowflake account.
-2. [Deploy your first project](tutorials/first-deployment.md). Use the wizard, deploy, build, and check the result in a development database.
-3. [See the screenshot walkthrough](screenshots/README.md). Follow the recorded wizard, Snowsight project, runs, and GitHub checks.
-
-## Complete a task
-
-| I want to… | How-to guide |
+| Responsibility | Start here |
 | --- | --- |
-| Deploy from GitHub Actions | [Configure OIDC and run the workflow](how-to/github-actions.md) |
-| Migrate an existing numbered project | [Migrate to LIVE](how-to/migrate-to-live.md) |
-| Build models or retry a failed run | [Run and retry](how-to/run-and-retry.md) |
-| Build only changed models | [Use baseline state](how-to/state-build.md) |
-| Check whether source data is recent | [Check source freshness](how-to/check-source-freshness.md) |
-| Find run details and logs | [Inspect runs](how-to/inspect-runs.md) |
-| Give an agent the right repository context | [Use the agent skills](how-to/use-agent-skills.md) |
+| Snowflake administrator: databases, schemas, roles, users, and grants | [Prepare databases, roles, and users](how-to/admin-setup.md) |
+| dbt project administrator: source deployment, project ownership, and access | [Deploy and hand off access](how-to/project-admin.md) |
+| dbt operator: builds, recovery, sources, and logs | [Run and retry](how-to/run-and-retry.md) · [Inspect runs](how-to/inspect-runs.md) |
 
-## Look up a setting
+The Snowflake admin gives the project team access for two separate jobs:
 
-- [Configuration](reference/configuration.md): fields, defaults, inference, and supported project files.
-- [Commands](reference/commands.md): flags, previews, execution, and failure behavior.
+```mermaid
+flowchart TD
+    A["Snowflake admin<br/>Prepares the setup"] -->|Gives access| P["Project admin<br/>Uploads project updates"]
+    A -->|Gives access| O["Operator<br/>Runs the project and checks results"]
+```
 
-## Understand the design
+## Tutorials
 
-- [Why CLI and GitHub Actions?](explanation/deployment-choice.md): SQL, Snowsight, and DCM compared.
-- [What does LIVE change?](explanation/live-version.md): source updates, artifacts, migration, and rollback.
-- [Validation evidence](validation.md): peer reviews, local checks, real trial executions, and their limits.
-- [Documentation review](documentation-review.md): independent structure, clarity, and source-accuracy passes.
+Follow these lessons in order to preview a project, deploy it, and build a view.
 
-The documentation separates learning, task instructions, reference, and explanation using [Diátaxis](https://diataxis.fr/start-here/). Its short steps, runnable examples, and visible checkpoints follow the writing approach of [FastAPI's tutorial](https://fastapi.tiangolo.com/tutorial/first-steps/).
+1. [Preview the example](tutorials/preview-the-example.md) — inspect a model and create an offline deployment plan.
+2. [Deploy your first project](tutorials/first-deployment.md) — set up fresh resources and use separate project administrator and operator logins.
+
+## How-to guides
+
+Use a guide to complete a specific task with your selected configuration.
+
+| Task | Guide |
+| --- | --- |
+| Provision access and identities | [Administrator setup](how-to/admin-setup.md) |
+| Deploy source and grant operator access | [Project administration](how-to/project-admin.md) |
+| Deploy or run from GitHub | [Separate GitHub workflows and identities](how-to/github-actions.md) |
+| Convert a numbered project to LIVE | [Migrate to LIVE](how-to/migrate-to-live.md) |
+| Build models or recover a failed run | [Run and retry](how-to/run-and-retry.md) |
+| Find execution history and logs | [Inspect runs](how-to/inspect-runs.md) |
+| Build only changed models | [Baseline state](how-to/state-build.md) |
+| Check source data age | [Source freshness](how-to/check-source-freshness.md) |
+| Give an agent task-specific context | [Use the repository skills](how-to/use-agent-skills.md) |
+
+## Reference
+
+Look up exact settings, options, accepted values, and checks.
+
+- [Configuration](reference/configuration.md)
+- [Commands](reference/commands.md)
+
+## Explanation
+
+Understand the design and its tradeoffs.
+
+- [Why deployment and operation use different roles](explanation/role-separation.md)
+- [Why use Snowflake CLI and GitHub Actions?](explanation/deployment-choice.md)
+- [Why LIVE changes deployment and recovery](explanation/live-version.md)

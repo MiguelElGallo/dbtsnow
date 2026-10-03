@@ -1,119 +1,174 @@
-# Deploy your first project
+# Deploy your first project through three responsibilities
 
 [Documentation](../index.md) · Previous: [Preview the example](preview-the-example.md)
 
-You will deploy the example into `DEV_DBT_PRJ`, build one view, and verify its row. This lesson uses `PROJECTS` for the native object, `ANALYTICS` for model output, and target `dev`.
+In this lesson, we will create a development database, deploy one native project, and build a view containing one row. A Snowflake administrator prepares access. Two new service users then deploy and build through separate authenticated CLI connections.
 
-## Prepare your connection
+## Before you start
 
-Complete the [preview lesson](preview-the-example.md) first. You also need a Snowflake account and an existing warehouse. The examples use `COMPUTE_WH`; substitute your warehouse if its name differs.
+Complete [the preview lesson](preview-the-example.md) and run the commands below from the repository root. You also need:
 
-Install the pinned CLI:
+- OpenSSL and the pinned Snowflake CLI installed below.
+- An approved administrator connection named `snowflake_admin` that can use `ACCOUNTADMIN` in your selected account. [Required administrator capabilities](../how-to/admin-setup.md#administrator-prerequisites).
+- An existing approved warehouse named `COMPUTE_WH` in that account.
+- Unused database `DBT_CORPORATE_DEV`, roles `DBT_PROJECT_ADMIN` and `DBT_OPERATOR`, and users `DBT_PROJECT_ADMIN_SVC` and `DBT_OPERATOR_SVC`.
+- No existing `deployment/dev.json`, `.local/dbt-corporate-keys` directory, or CLI connections named `dbt_project_admin` and `dbt_operator`.
+
+This is a fresh-resource exercise. To onboard existing corporate resources, use [administrator setup](../how-to/admin-setup.md#use-existing-corporate-resources).
 
 ```sh
 uv tool install snowflake-cli==3.28.0
 snow --version
 ```
 
-The version must be `3.28.0`. Set up a saved connection using [Snowflake's connection guide](https://docs.snowflake.com/en/developer-guide/snowflake-cli/connecting/connect), then test it. This lesson calls the connection `snowflake_trial`:
+The version output should report `3.28.0`.
+
+## Administrator: confirm the selected account
+
+Use the approved administrator connection for this read-only check:
 
 ```sh
-snow connection test --connection snowflake_trial
+snow sql --connection snowflake_admin --role ACCOUNTADMIN --secondary-roles NONE \
+  --query "SELECT CURRENT_ORGANIZATION_NAME() || '-' || CURRENT_ACCOUNT_NAME() AS ACCOUNT, CURRENT_USER() AS USER_NAME, CURRENT_ROLE() AS ROLE_NAME, CURRENT_SECONDARY_ROLES() AS SECONDARY_ROLES"
 ```
 
-Finish any browser sign-in requested by your connection. Use your own account identifier in `ORGANIZATION-ACCOUNT` form when the wizard asks for it.
+Confirm that `ACCOUNT` is the approved `ORGANIZATION-ACCOUNT`, `ROLE_NAME` is `ACCOUNTADMIN`, and no secondary roles are active. Keep the account value for the next step. If the connection is not ready, complete your organization's administrator authentication setup before continuing.
 
-## Prepare the development database
+## Prepare the shared configuration
 
-Ask a Snowflake administrator to run this SQL. Replace `<YOUR_USER>` with your Snowflake user name and `COMPUTE_WH` with your existing warehouse. These grants stay within the development database and that warehouse.
-
-```sql
-CREATE DATABASE IF NOT EXISTS DEV_DBT_PRJ;
-CREATE SCHEMA IF NOT EXISTS DEV_DBT_PRJ.PROJECTS;
-CREATE SCHEMA IF NOT EXISTS DEV_DBT_PRJ.ANALYTICS;
-CREATE ROLE IF NOT EXISTS DEV_DBT_PRJ_DEPLOYER;
-
-GRANT USAGE, CREATE SCHEMA ON DATABASE DEV_DBT_PRJ TO ROLE DEV_DBT_PRJ_DEPLOYER;
-GRANT USAGE ON SCHEMA DEV_DBT_PRJ.PROJECTS TO ROLE DEV_DBT_PRJ_DEPLOYER;
-GRANT CREATE DBT PROJECT ON SCHEMA DEV_DBT_PRJ.PROJECTS TO ROLE DEV_DBT_PRJ_DEPLOYER;
-GRANT USAGE ON SCHEMA DEV_DBT_PRJ.ANALYTICS TO ROLE DEV_DBT_PRJ_DEPLOYER;
-GRANT CREATE TABLE, CREATE VIEW ON SCHEMA DEV_DBT_PRJ.ANALYTICS TO ROLE DEV_DBT_PRJ_DEPLOYER;
-GRANT USAGE ON WAREHOUSE COMPUTE_WH TO ROLE DEV_DBT_PRJ_DEPLOYER;
-GRANT ROLE DEV_DBT_PRJ_DEPLOYER TO USER <YOUR_USER>;
-```
-
-The example needs no source tables or external packages. Real projects need permissions on their own sources. [Snowflake access-control reference](https://docs.snowflake.com/en/user-guide/data-engineering/dbt-projects-on-snowflake-access-control).
-
-## Save your settings
+Create a new local copy without replacing an existing file:
 
 ```sh
-uv run python scripts/dbt_native.py wizard --source example --output deployment/dev.json
+test ! -e deployment/dev.json && cp deployment/example.json deployment/dev.json
 ```
 
-The wizard reads literal project/profile settings and, if selected, your saved connection. Press Enter to accept a suggested value; otherwise type the value you want.
+Edit this complete copied JSON. Set `account` to the account just checked, and set both `database` and `model_database` to `DBT_CORPORATE_DEV`. Keep `warehouse` as `COMPUTE_WH`. Retain the following settings in the copied file:
 
-Use these choices for this lesson:
+```json
+{
+  "role": "DBT_OPERATOR",
+  "deployment_role": "DBT_PROJECT_ADMIN",
+  "operator_user": "DBT_OPERATOR_SVC",
+  "deployment_user": "DBT_PROJECT_ADMIN_SVC",
+  "connection": null,
+  "deployment_connection": null,
+  "auto_compile": false
+}
+```
 
-| Prompt | Answer |
-| --- | --- |
-| Local connection | `snowflake_trial` |
-| Account | Your `ORGANIZATION-ACCOUNT` identifier |
-| Database | `DEV_DBT_PRJ` |
-| Object schema | `PROJECTS` |
-| Project | `native_dbt_example` |
-| Role | `DEV_DBT_PRJ_DEPLOYER` |
-| Warehouse | `COMPUTE_WH`, or your existing warehouse |
-| Model database / schema | `DEV_DBT_PRJ` / `ANALYTICS` |
-| Profile / target | `native_dbt_example` / `dev` |
-| dbt version | `2.0.0-preview.210` |
-| External access integrations | Leave blank |
-| Persist run artifacts in LIVE | `no` |
-| Compile during deployment | `yes` |
-
-You should see `Saved .../deployment/dev.json`. The wizard saves a local file without connecting to Snowflake. It refuses to overwrite an existing configuration; reuse that file or choose a new output name.
-
-## Check the destination
+This is a fragment of the copied configuration. Keep its other fields: object schema `PROJECTS`, model schema `ANALYTICS`, project `NATIVE_DBT_EXAMPLE`, profile `native_dbt_example`, target `dev`, and runtime `2.0.0`.
 
 ```sh
 uv run python scripts/dbt_native.py deploy --config deployment/dev.json
 ```
 
-Confirm the account, role, warehouse, native object `DEV_DBT_PRJ.PROJECTS.native_dbt_example`, and model destination `DEV_DBT_PRJ.ANALYTICS`. This is still a preview.
+Check the plan: native object `DBT_CORPORATE_DEV.PROJECTS.NATIVE_DBT_EXAMPLE`, model destination `DBT_CORPORATE_DEV.ANALYTICS`, deployment role `DBT_PROJECT_ADMIN`, and operator role `DBT_OPERATOR`. The final line confirms no connection was made.
 
-## Deploy the object
+## Administrator: create two test logins
+
+Generate the two key pairs using [the fresh key-directory recipe](../how-to/admin-setup.md#create-dedicated-test-credentials). It creates `.local/dbt-corporate-keys` and keeps each user's private key separate.
+
+Preview the complete setup:
 
 ```sh
+uv run python scripts/dbt_admin.py bootstrap \
+  --config deployment/dev.json \
+  --admin-connection snowflake_admin \
+  --admin-role ACCOUNTADMIN \
+  --project-admin-user DBT_PROJECT_ADMIN_SVC \
+  --project-admin-public-key-file .local/dbt-corporate-keys/project-admin.pub.pem \
+  --operator-user DBT_OPERATOR_SVC \
+  --operator-public-key-file .local/dbt-corporate-keys/operator.pub.pem
+```
+
+Check the account, the new database and schemas, both independent roles, and both service users. The operator gets model-schema privileges; neither delegated role gets account administration. The final line confirms no Snowflake connection.
+
+Apply the reviewed setup:
+
+```sh
+uv run python scripts/dbt_admin.py bootstrap \
+  --config deployment/dev.json \
+  --admin-connection snowflake_admin \
+  --admin-role ACCOUNTADMIN \
+  --project-admin-user DBT_PROJECT_ADMIN_SVC \
+  --project-admin-public-key-file .local/dbt-corporate-keys/project-admin.pub.pem \
+  --operator-user DBT_OPERATOR_SVC \
+  --operator-public-key-file .local/dbt-corporate-keys/operator.pub.pem \
+  --apply
+```
+
+Wait for `Verified administrator setup`. It confirms the fresh resources and identity assignments; no project has been deployed or model built yet. If setup fails, inspect the error and partial state with the administrator before continuing. [Setup and readback](../how-to/admin-setup.md#apply-and-read-back).
+
+## Authenticate as each new user
+
+Replace `MYORG-MYACCOUNT` in both commands with the same checked account:
+
+```sh
+snow connection add --connection-name dbt_project_admin \
+  --account MYORG-MYACCOUNT --user DBT_PROJECT_ADMIN_SVC \
+  --role DBT_PROJECT_ADMIN --warehouse COMPUTE_WH \
+  --authenticator SNOWFLAKE_JWT --private-key .local/dbt-corporate-keys/project-admin.p8 \
+  --secondary-roles NONE --no-interactive
+snow connection add --connection-name dbt_operator \
+  --account MYORG-MYACCOUNT --user DBT_OPERATOR_SVC \
+  --role DBT_OPERATOR --warehouse COMPUTE_WH \
+  --authenticator SNOWFLAKE_JWT --private-key .local/dbt-corporate-keys/operator.p8 \
+  --secondary-roles NONE --no-interactive
+```
+
+Set `deployment_connection` to `dbt_project_admin` and `connection` to `dbt_operator` in `deployment/dev.json`. Keep both expected usernames.
+
+Check each login through its own connection:
+
+```sh
+snow sql --connection dbt_project_admin --secondary-roles NONE \
+  --query 'SELECT CURRENT_USER(), CURRENT_ROLE(), CURRENT_SECONDARY_ROLES()'
+snow sql --connection dbt_operator --secondary-roles NONE \
+  --query 'SELECT CURRENT_USER(), CURRENT_ROLE(), CURRENT_SECONDARY_ROLES()'
+```
+
+The first result must name `DBT_PROJECT_ADMIN_SVC` and `DBT_PROJECT_ADMIN`; the second must name `DBT_OPERATOR_SVC` and `DBT_OPERATOR`. Both must have no active secondary roles. We now have two working logins rather than an administrator switching roles.
+
+## Project administrator: deploy source
+
+```sh
+uv run python scripts/dbt_native.py deploy --config deployment/dev.json
 uv run python scripts/dbt_native.py deploy --config deployment/dev.json --apply
 ```
 
-The CLI uploads the files and compiles the project. The wrapper downloads the deployed source and compares it with the upload. On success, you should see:
+The applied command uses the project administrator connection. It skips compilation and verifies the uploaded source. Look for:
 
 ```text
-Verified deployment: DEV_DBT_PRJ.PROJECTS.native_dbt_example, runtime 2.0.0-preview.210, target dev, version LIVE, source hashes match.
+Verified deployment: DBT_CORPORATE_DEV.PROJECTS.NATIVE_DBT_EXAMPLE, runtime 2.0.0, target dev, version LIVE, source hashes match.
 ```
 
-The account must support the selected runtime and LIVE objects. The wrapper stops before replacing an existing numbered object; use the separate [migration guide](../how-to/migrate-to-live.md) for that situation.
-
-## Build and check the view
+Hand off access to the operator:
 
 ```sh
+uv run python scripts/dbt_native.py project-access --config deployment/dev.json
+uv run python scripts/dbt_native.py project-access --config deployment/dev.json --apply
+```
+
+The final message confirms that `DBT_OPERATOR` has `USAGE` and `MONITOR` on this project. The operator is now ready to execute it.
+
+## Operator: build and read the view
+
+```sh
+uv run python scripts/dbt_native.py run --config deployment/dev.json --command build
 uv run python scripts/dbt_native.py run --config deployment/dev.json --command build --apply
 ```
 
-This step writes model relations in `ANALYTICS`. Expect one successful model and two passing tests, followed by `dbt build completed successfully.`
+This command uses the operator connection. Expect one successful model, two passing tests, and `dbt build completed successfully.` The model creates `DEPLOYMENT_CHECK` in `DBT_CORPORATE_DEV.ANALYTICS`.
 
-In Snowsight, run:
+Read its row through the same operator login:
 
-```sql
-USE ROLE DEV_DBT_PRJ_DEPLOYER;
-USE WAREHOUSE COMPUTE_WH;
-SELECT ID, MESSAGE FROM DEV_DBT_PRJ.ANALYTICS.DEPLOYMENT_CHECK;
+```sh
+snow sql --connection dbt_operator --secondary-roles NONE \
+  --query 'SELECT ID, MESSAGE FROM DBT_CORPORATE_DEV.ANALYTICS.DEPLOYMENT_CHECK'
 ```
 
 | ID | MESSAGE |
 | --- | --- |
 | 1 | Native dbt deployment works |
 
-You have deployed a native dbt object and built its model. Find the object under **Transformation → dbt Projects**, or [inspect its execution history and logs](../how-to/inspect-runs.md).
-
-Next, [automate deployment with GitHub Actions](../how-to/github-actions.md). If a step failed, use the [failure guide](../how-to/inspect-runs.md) before repeating it.
+We have completed the administrator-to-project-administrator-to-operator handoff and read the model's output. Next, [inspect a run](../how-to/inspect-runs.md) or [configure the two GitHub workflows](../how-to/github-actions.md). For another project, use the task guides for [administrator setup](../how-to/admin-setup.md), [source deployment](../how-to/project-admin.md), and [build/retry](../how-to/run-and-retry.md).

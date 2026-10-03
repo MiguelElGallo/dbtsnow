@@ -102,6 +102,22 @@ class NativeDeploymentTests(unittest.TestCase):
         with self.assertRaises(native.DeploymentError):
             native.load_config(config_path)
 
+    def test_omitted_runtime_uses_stable_fusion_and_explicit_core_remains_supported(self) -> None:
+        payload = asdict(self.config)
+        payload.pop("dbt_version")
+        path = self.root / "deployment.json"
+        path.write_text(json.dumps(payload))
+        loaded = native.load_config(path)
+        self.assertEqual(loaded.dbt_version, "2.0.0")
+        self.assertIn("--profile", native.execution_command(loaded, command="retry"))
+        sample = native.load_config(Path(__file__).resolve().parents[1] / "deployment/example.json")
+        self.assertEqual(sample.dbt_version, loaded.dbt_version)
+        payload["dbt_version"] = "1.11.11"
+        path.write_text(json.dumps(payload))
+        core = native.load_config(path)
+        self.assertEqual(core.dbt_version, "1.11.11")
+        self.assertNotIn("--profile", native.execution_command(core, command="retry"))
+
     def test_relative_source_is_resolved_from_config_file(self) -> None:
         payload = asdict(self.config)
         payload["source"] = "project"
@@ -267,6 +283,7 @@ class NativeDeploymentTests(unittest.TestCase):
                                 "ORGANIZATION": "org",
                                 "ACCOUNT": identity_account,
                                 "ROLE": "TRANSFORMER",
+                                "SECONDARY_ROLES": json.dumps({"roles": "", "value": "NONE"}),
                             }
                         ]
                     )
@@ -288,6 +305,7 @@ class NativeDeploymentTests(unittest.TestCase):
                             [
                                 {
                                     "name": "TINY",
+                                    "owner": "TRANSFORMER",
                                     "default_version": "LIVE" if existing_live else "VERSION$1",
                                 }
                             ]

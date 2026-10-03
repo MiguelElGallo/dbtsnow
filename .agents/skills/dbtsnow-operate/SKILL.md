@@ -1,43 +1,40 @@
 ---
 name: dbtsnow-operate
-description: Build, compile, retry, inspect logs, check freshness, use baseline state, or migrate an existing native Snowflake DBT PROJECT through this dbtsnow repository. Use for operating and diagnosing deployed dbtsnow objects, especially LIVE artifact and target constraints.
+description: Build, compile, retry, inspect runs and logs, check freshness, or use baseline state as the operator of an existing native Snowflake DBT PROJECT through this dbtsnow repository. Source deployment and legacy migration belong to dbtsnow-deploy; privilege provisioning belongs to dbtsnow-admin.
 ---
 
 # Operate a deployed project
 
-Use the user-selected checkout, or walk ancestors of this SKILL.md to find `pyproject.toml` naming `dbtsnow` and `scripts/dbt_native.py`. If an explicitly selected checkout is invalid, request its location; do not substitute another repository. Run from its root with the user's configuration. Never reuse the historical trial account as a default.
+Use the user's selected checkout or walk ancestors of this skill to find `pyproject.toml` naming `dbtsnow` and `scripts/dbt_native.py`. Run from that root with the selected configuration. Tutorial account names are examples rather than deployment defaults.
 
-Read only the guide relevant to the task:
+`role`, `connection`, and optional `operator_user` select the operator; deployment fields are reserved for project administration. The generated native profile uses the operator role. Authenticate as that user for two-user validation; administrator role switching does not prove delegated login.
+
+Read only the relevant guide:
 
 | Task | Guide |
 | --- | --- |
 | Build, compile, retry | [Run and retry](../../../docs/how-to/run-and-retry.md) |
-| Find execution/query logs | [Inspect runs](../../../docs/how-to/inspect-runs.md) |
-| Select changed models or defer references | [State builds](../../../docs/how-to/state-build.md) |
-| Check source age | [Source freshness](../../../docs/how-to/check-source-freshness.md) |
-| Convert a numbered object | [Migrate to LIVE](../../../docs/how-to/migrate-to-live.md) |
-| Look up flags/verification behavior | [Commands](../../../docs/reference/commands.md) |
+| History, query logs, browser access | [Inspect runs](../../../docs/how-to/inspect-runs.md) |
+| Changed models and deferral | [State builds](../../../docs/how-to/state-build.md) |
+| Source age | [Source freshness](../../../docs/how-to/check-source-freshness.md) |
+| Flags and verification | [Commands](../../../docs/reference/commands.md) |
 
-## Execute the selected task
+## Execute the authorized operation
 
-Preview `uv run python scripts/dbt_native.py run --config <config> --command <build|compile|retry|source-freshness>` with any required task flags. Show the native object, model destination, runtime, selection/state, and writeback. Append `--apply` when the user has authorized that execution; do not repeat permission requests already resolved. Build writes model relations and runs tests. Do not redeploy merely to execute an existing project.
+Preview `uv run python scripts/dbt_native.py run --config <config> --command <build|compile|retry|source-freshness>` with the task's flags. Show object/model destination, operator identity/role, runtime, state/selection, and writeback. Read `dbt_version` from the selected configuration if the run preview omits it. Append `--apply` when execution is already authorized. Build/retry can write model relations and tests may query data.
 
-Applied runs verify deployed runtime, project profile, and the selected profile's base database/schema/role/warehouse. Keep those checks intact. Preview does not connect or verify the deployed target. On failure, use scoped execution history/query logs and the wrapper's error to diagnose the cause before any further mutation. Data repairs, privilege changes, and further executions must stay within the task’s existing authorization; do not broaden access or blindly retry.
+Applied runs verify account/role, optional expected username, empty secondary roles, deployed runtime/profile, and base model database/schema/role/warehouse. Preserve these checks. Do not redeploy merely to execute a project, switch to an administrator role on denial, or broaden privileges automatically. Route source fixes/migration to project administration and access/data provisioning to the appropriate administrator.
 
-## Retry requires preserved failed state
+Use scoped history/query logs after failure before another write. Service-user CLI tests do not establish human browser sign-in or GitHub OIDC authentication.
 
-Locate an actual failed invocation that persisted compatible `target/run_results.json` using writeback. Enabling writeback now cannot recreate missing artifacts. Redeployment replaces all LIVE files; intervening writeback can overwrite the failed state. Serialize runs that share it.
+## Retry needs failed state
 
-Fusion retry explicitly receives the configured target/profile. Core inherits recorded arguments, so missing/different targets or incompatible profiles are rejected. Do not bypass a destination mismatch. Retry accepts no selector/state import. If artifacts are missing or source needs fixing, explain why retry cannot work and propose the separately scoped fix/deploy/new build; do not apply that alternative without task authorization. Retry after a successful invocation is not a validation strategy.
+Find an actual failed invocation with compatible persisted `target/run_results.json`. Enabling writeback now cannot recreate missing state. Deployment replaces LIVE files, and intervening writeback may overwrite the failure. Serialize executions with deployment and other runs sharing this path.
 
-## State and freshness
+Fusion retry explicitly uses configured target/profile; Core inherits recorded arguments. Destination mismatches stop execution; do not bypass them. Retry accepts neither selection nor state. Missing artifacts or a necessary source fix require a separately scoped deploy/new build, rather than an invented retry success. Retry after a successful run is not a validation strategy.
 
-State validation uses a separate deployed CI object and writable model schema. The baseline needs populated successful build/run artifacts from the last seven days; deployment compilation is insufficient. Roles need baseline `MONITOR`, destination permissions, and baseline relation read access for deferral.
+## State, freshness, and jobs
 
-Use `--state-from DB.SCHEMA.PROJECT --select state:modified+ --no-writeback`, adding `--defer` only when requested and using state. The wrapper freezes the baseline locator and imports it at `./imports/state`; missing state stops execution rather than falling back to a full build. A changed-node run need not populate the entire CI schema.
+State comparisons need an isolated writable CI model destination, successful build/run artifacts from the last seven days, baseline `MONITOR`, and relation reads for deferral. Use `--state-from DB.SCHEMA.PROJECT --select state:modified+ --no-writeback`, adding `--defer` only with state. Missing state stops execution. Freshness needs defined sources; the included one-view example has none.
 
-Freshness requires defined dbt sources; the included one-view example has none. Follow the freshness guide for UTC timestamp handling. Use isolated source-data fixtures only when the task includes them; do not alter source tables outside its existing authorization.
-
-## Migration
-
-Use the `migrate` preview/apply path only for the configured legacy object and an authorized migration. It requires appropriate ownership/feature availability and verifies LIVE readback. Numbered source versions become inaccessible; execution history is preserved. Do not enable account bundles, recreate objects, or promise restoration of previous model relations.
+`.github/workflows/operate.yml` is manual, main-only, uses `dev-operate` and `SNOWFLAKE_OPERATOR_USER`, and shares `native-dbt-dev` concurrency with deployment. It executes the selected command without deploying source. Follow [GitHub setup](../../../docs/how-to/github-actions.md) for OIDC and allowed input combinations. Dispatch only within the task's authorization and report actual cloud execution separately from offline checks.

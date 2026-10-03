@@ -1,100 +1,122 @@
-# Deploy with GitHub Actions
+# Deploy and operate with separate GitHub identities
 
-[Documentation](../index.md)
+[Documentation](../index.md) · [Role responsibilities](../explanation/role-separation.md)
 
-The deployment workflow reads `deployment/dev.json` and runs **manually from `main`**, using the GitHub environment **`dev`**. GitHub OIDC supplies a short-lived Snowflake identity; no private key or password is stored in this template.
+Configure two manual workflows with separate Snowflake users and GitHub environments. Both read the reviewed `deployment/dev.json`.
 
-## 1. Save the deployment settings
+| Workflow | GitHub environment | Snowflake identity | Work performed |
+| --- | --- | --- | --- |
+| `.github/workflows/deploy.yml` | `dev-deploy` | Project administrator | Deploy and verify source, then grant operator project access |
+| `.github/workflows/operate.yml` | `dev-operate` | Operator | Compile, build, retry, or check freshness |
 
-Run the wizard locally:
+The deployment workflow requires a regular object schema. For managed access, arrange [administrator-owned project grants](admin-setup.md#complete-project-and-viewer-access-after-deployment) and adapt the workflow to omit its project-owner `project-access` step. Pre-granted access does not authorize the owner to repeat that grant.
 
-```sh
-uv run python scripts/dbt_native.py wizard --source example --output deployment/dev.json
-uv run python scripts/dbt_native.py deploy --config deployment/dev.json
+Both workflows share concurrency group `native-dbt-dev` so deployment cannot replace LIVE files during an operation. Coordinate local runs using the same project too.
+
+## Project administrator: review the configuration
+
+Prepare a complete configuration for the approved account and destinations. Use independent custom roles, `auto_compile: false`, and the two OIDC usernames provisioned below. These fields belong in the complete configuration:
+
+```json
+{
+  "role": "DBT_OPERATOR",
+  "deployment_role": "DBT_PROJECT_ADMIN",
+  "operator_user": "DBT_OPERATOR_GITHUB",
+  "deployment_user": "DBT_PROJECT_ADMIN_GITHUB",
+  "auto_compile": false
+}
 ```
 
-The [configuration reference](../reference/configuration.md) documents every field and default:
+Preview the deployment, access handoff, and operator build locally:
 
-| Settings | Purpose |
-| --- | --- |
-| `account` | Expected account in canonical `ORGANIZATION-ACCOUNT` form, for example `MYORG-MYACCOUNT`. |
-| `database`, `object_schema`, `project` | Native object destination. |
-| `model_database`, `model_schema` | Tables and views produced by dbt. |
-| `role`, `warehouse` | Explicit execution context. |
-| `profile`, `target`, `dbt_version` | Native dbt profile, target, and pinned runtime. |
-| `auto_compile`, `default_writeback` | JSON booleans controlling deployment compilation and execution artifact persistence. Defaults: `true`, `false`. |
-| `source` | Project directory, relative to the configuration file's directory. |
-| `external_access_integrations` | Existing integrations for remote packages; empty for the included example. |
-| `connection` | Optional local CLI connection; ignored by CI. |
+```sh
+uv run python scripts/dbt_native.py deploy --config deployment/dev.json
+uv run python scripts/dbt_native.py project-access --config deployment/dev.json
+uv run python scripts/dbt_native.py run --config deployment/dev.json --command build --no-writeback
+```
 
-Review the destination and commit the credentials-free configuration when publishing your workflow. The tracked `deployment/example.json` is a reference with placeholders; the workflow always uses `deployment/dev.json`.
+Confirm the same account/project, the two distinct users, and the intended model destination across the plans. These previews make no Snowflake connection. Workflows use `--temporary-connection`, so saved local connection names are ignored. See the [configuration reference](../reference/configuration.md) for the remaining fields.
 
-Actual configuration files are ignored by Git by default. Once you have reviewed this specific account and destination, explicitly include the workflow's configuration:
+Destination configurations are ignored by default. Explicitly add the reviewed, credentials-free file for the workflow:
 
 ```sh
 git add -f deployment/dev.json
 ```
 
-## 2. Prepare Snowflake
+Commit source and configuration through your normal PR process. Repository checks run locally; dispatching either workflow is the step that deploys or executes in Snowflake.
 
-An administrator runs the following **after replacing every `<…>` placeholder**. Keep the warehouse, role, and destination consistent with the saved configuration. This example uses a dedicated development database, with `PROJECTS` for the object and `ANALYTICS` for model output.
+## Administrator: prepare Snowflake and two OIDC users
+
+Complete [administrator setup](admin-setup.md) for the databases, schemas, and independent roles. Using your approved administrator identity, provision two fresh service users. Replace the usernames and `<OWNER>/<REPO>` with the reviewed values:
 
 ```sql
-CREATE DATABASE IF NOT EXISTS DEV_DBT_PRJ;
-CREATE SCHEMA IF NOT EXISTS DEV_DBT_PRJ.PROJECTS;
-CREATE SCHEMA IF NOT EXISTS DEV_DBT_PRJ.ANALYTICS;
-
-CREATE ROLE IF NOT EXISTS DEV_DBT_PRJ_DEPLOYER;
-GRANT USAGE, CREATE SCHEMA ON DATABASE DEV_DBT_PRJ TO ROLE DEV_DBT_PRJ_DEPLOYER;
-GRANT USAGE ON SCHEMA DEV_DBT_PRJ.PROJECTS TO ROLE DEV_DBT_PRJ_DEPLOYER;
-GRANT CREATE DBT PROJECT ON SCHEMA DEV_DBT_PRJ.PROJECTS TO ROLE DEV_DBT_PRJ_DEPLOYER;
-GRANT USAGE ON SCHEMA DEV_DBT_PRJ.ANALYTICS TO ROLE DEV_DBT_PRJ_DEPLOYER;
-GRANT CREATE TABLE, CREATE VIEW ON SCHEMA DEV_DBT_PRJ.ANALYTICS TO ROLE DEV_DBT_PRJ_DEPLOYER;
-GRANT USAGE ON WAREHOUSE <YOUR_EXISTING_WAREHOUSE> TO ROLE DEV_DBT_PRJ_DEPLOYER;
-
-CREATE USER <YOUR_GITHUB_SERVICE_USER>
+CREATE USER DBT_PROJECT_ADMIN_GITHUB
   TYPE = SERVICE
   WORKLOAD_IDENTITY = (
     TYPE = OIDC
     ISSUER = 'https://token.actions.githubusercontent.com'
-    SUBJECT = 'repo:<OWNER>/<REPO>:environment:dev'
+    SUBJECT = 'repo:<OWNER>/<REPO>:environment:dev-deploy'
   )
-  DEFAULT_ROLE = DEV_DBT_PRJ_DEPLOYER;
+  DEFAULT_ROLE = DBT_PROJECT_ADMIN
+  DEFAULT_SECONDARY_ROLES = ();
+GRANT ROLE DBT_PROJECT_ADMIN TO USER DBT_PROJECT_ADMIN_GITHUB;
 
-GRANT ROLE DEV_DBT_PRJ_DEPLOYER TO USER <YOUR_GITHUB_SERVICE_USER>;
+CREATE USER DBT_OPERATOR_GITHUB
+  TYPE = SERVICE
+  WORKLOAD_IDENTITY = (
+    TYPE = OIDC
+    ISSUER = 'https://token.actions.githubusercontent.com'
+    SUBJECT = 'repo:<OWNER>/<REPO>:environment:dev-operate'
+  )
+  DEFAULT_ROLE = DBT_OPERATOR
+  DEFAULT_SECONDARY_ROLES = ();
+GRANT ROLE DBT_OPERATOR TO USER DBT_OPERATOR_GITHUB;
 ```
 
-Use the exact GitHub owner/repository name in the subject. The environment name must be exactly `dev`. Each Snowflake OIDC service user needs a unique subject; inspect an existing user before creating another.
+Review existing users or workload identities separately. Each subject must identify only its intended service user, and the deployment user must have only its project administrator role. Operators execute through the other user.
 
-The creator owns the native object and can update and monitor it. dbt issues schema-creation statements, so the example grants `CREATE SCHEMA` within the dedicated development database. For an existing object owned by another role, arrange its ownership separately. Real projects also need appropriate source-data privileges; grant `SELECT` only on their intended sources. Custom model schemas need their own permissions. Remote packages additionally need `USAGE` on the selected existing external access integration. The CLI's temporary upload stage does not require a permanent-stage creation grant.
+The [Snowflake OIDC action](https://github.com/snowflakedb/snowflake-actions) obtains the workflow identity used by [workload identity federation](https://docs.snowflake.com/en/user-guide/workload-identity-federation).
 
-Sources: [official OIDC action](https://github.com/snowflakedb/snowflake-actions), [dbt permissions](https://docs.snowflake.com/en/user-guide/data-engineering/dbt-projects-on-snowflake-access-control), [temporary stages](https://docs.snowflake.com/en/sql-reference/sql/create-stage).
+## Administrator: configure the GitHub environments
 
-## 3. Configure GitHub
+In repository **Settings → Environments**, create **`dev-deploy`** and **`dev-operate`**. Restrict each to **`main`** and add required reviewers according to your platform process. An environment OIDC subject identifies the environment, so the branch restriction belongs in these GitHub settings.
 
-In **Settings → Environments**, create **`dev`**:
+Set these environment variables:
 
-1. Restrict deployment branches to **`main`**. This is needed because an environment OIDC subject identifies the environment rather than a branch.
-2. Add required reviewers if your repository supports them and your team wants a deployment approval.
-3. Set these environment variables under **Secrets and variables → Actions**, or directly in the environment:
+| Environment | Variable | Value |
+| --- | --- | --- |
+| Both | `SNOWFLAKE_ACCOUNT` | The same `ORGANIZATION-ACCOUNT` as the configuration |
+| `dev-deploy` | `SNOWFLAKE_PROJECT_ADMIN_USER` | `DBT_PROJECT_ADMIN_GITHUB`, matching `deployment_user` |
+| `dev-operate` | `SNOWFLAKE_OPERATOR_USER` | `DBT_OPERATOR_GITHUB`, matching `operator_user` |
 
-| Variable | Value |
+The configuration supplies the roles, warehouse, project, and model destination. Keep passwords and private keys out of it. If a Snowflake network policy restricts access, arrange the approved runner route before dispatching.
+
+## Project administrator: run deployment
+
+Open **Actions**, select **Project administrator - deploy native dbt**, choose **Run workflow**, and select **`main`**.
+
+The job checks the repository, authenticates as the project administrator, deploys without compilation, verifies source, and grants the operator `USAGE`/`MONITOR` on the project. Check for `Verified deployment:` and `Verified project access:` in the deployment step before handing the project to the operator.
+
+Finish pending retry recovery before deployment: replacing LIVE source removes earlier retry artifacts.
+
+## Operator: run the operation workflow
+
+In **Actions**, select **Operator - run native dbt**, choose **Run workflow** on **`main`**, and set the inputs:
+
+| Input | Purpose |
 | --- | --- |
-| `SNOWFLAKE_ACCOUNT` | The same account as `account` in the saved configuration. |
-| `SNOWFLAKE_USER` | The service user created above. |
+| `command` | `build`, `compile`, `retry`, or `source-freshness` |
+| `state_from` | Optional successful baseline `DB.SCHEMA.PROJECT` for build/compile |
+| `select` | Optional single selector; retry accepts no selection |
+| `defer` | Use baseline relations for unselected references; requires `state_from` |
+| `writeback` | Persist this run's artifacts in LIVE |
 
-Role, warehouse, and both destinations come from the configuration. The workflow uses `--temporary-connection`; it does not load your saved local connection. If Snowflake inbound network rules restrict access, arrange access for the selected runner before deployment. See [Snowflake's CI/CD tutorial](https://docs.snowflake.com/en/user-guide/tutorials/dbt-projects-on-snowflake-ci-cd-tutorial).
+Choose writeback for a build whose failure may need retry. [State comparisons](state-build.md) require a successful baseline, baseline access, and an isolated writable model destination. Retry requires persisted compatible failed artifacts and accepts neither selection nor state inputs. See [run/retry](run-and-retry.md) and [freshness](check-source-freshness.md) for those tasks.
 
-## 4. Run the workflow
+The job authenticates as the operator and checks the deployed runtime, profile, and model destination before execution.
 
-After the workflow and reviewed configuration are available in your GitHub repository, open **Actions**, choose the native dbt deployment workflow, select **Run workflow**, and select **`main`**.
+## Check the evidence
 
-The workflow runs format checks, Ruff, ty, and unit tests before authenticating and deploying. It pins the CLI version, uses OIDC with limited GitHub permissions, and serializes deployments through concurrency control. The workflow refuses deployment from another branch; the environment branch restriction supplies a second boundary.
+Check the operation step for native dbt output and the command's completion message. If it fails, use [run history and logs](inspect-runs.md) to identify the failed invocation. If identity verification fails, compare the environment username with the corresponding configured `deployment_user` or `operator_user`.
 
-Leave **build** disabled to deploy the native project; compilation follows `auto_compile` in the saved configuration. Enable it to run `dbt build`, which writes tables or views and runs dbt tests against the configured model destination. The workflow verifies the runtime and target, downloads the deployed source, and compares its file hashes and commit receipt with the upload. Native commit metadata is also checked when exposed by the account. A later build failure does not undo deployment or previously changed relations.
-
-For a state-based build, also set **state_from** to the baseline `DB.SCHEMA.PROJECT`, **select** to `state:modified+`, and optionally enable **defer**. These inputs require **build**. Configure a separate CI model destination and set `auto_compile: false` to avoid compiling every model during deployment. State-based workflow builds disable writeback; ordinary builds follow `default_writeback`. See the [state-build guide](state-build.md) for prerequisites and permissions, or the separate [migration guide](migrate-to-live.md) for numbered objects.
-
-The example has no external packages and builds one view with dbt tests. Larger projects should add isolated model-build validation before production promotion. This development starter does not automatically run model builds on incoming pull requests or deploy on every push.
-
-For rollback through GitHub, restore the desired earlier source and configuration through a reviewed PR into `main`, then run the workflow again. Its receipt records the new restore commit. Locally, you can deploy an earlier checked-out revision using the same deployment command.
+For source rollback, restore the reviewed earlier source/configuration through a PR, dispatch deployment, then have the operator validate it. Neither a failed build nor source rollback restores earlier model data.

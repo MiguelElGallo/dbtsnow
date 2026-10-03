@@ -1,45 +1,60 @@
 # Working in dbtsnow
 
 This repository deploys native Snowflake `DBT PROJECT` objects through
-`scripts/dbt_native.py`. Start with [README](README.md) and the
-[documentation home](docs/index.md). Native deployment and local dbt execution
-have different configuration and artifact behavior.
+`scripts/dbt_native.py`; `scripts/dbt_admin.py` provisions fresh administrator-owned
+resources. Start with [README](README.md) and [documentation](docs/index.md).
+Native deployment and local dbt execution have different configuration and artifacts.
 
-## Choose the relevant skill
+## Choose the responsibility and skill
 
-Load only the skill needed for the task:
-
-| Task | Repository skill |
+| Responsibility or task | Repository skill |
 | --- | --- |
-| Configure the wizard, preview/deploy source, or set up GitHub deployment | [dbtsnow-deploy](.agents/skills/dbtsnow-deploy/SKILL.md) |
-| Build, compile, retry, inspect logs, use state/freshness, or migrate | [dbtsnow-operate](.agents/skills/dbtsnow-operate/SKILL.md) |
-| Navigate, change, test, document, or review the repository | [dbtsnow-maintain](.agents/skills/dbtsnow-maintain/SKILL.md) |
+| Snowflake administrator: database/schema/role/user setup and authentication handoff | [dbtsnow-admin](.agents/skills/dbtsnow-admin/SKILL.md) |
+| Project administrator: wizard, source deployment, project access, legacy migration, deployment job | [dbtsnow-deploy](.agents/skills/dbtsnow-deploy/SKILL.md) |
+| Operator: build, compile, retry, history/logs, state/freshness, operation job | [dbtsnow-operate](.agents/skills/dbtsnow-operate/SKILL.md) |
+| Repository engineering: navigation, changes, tests, documentation, review | [dbtsnow-maintain](.agents/skills/dbtsnow-maintain/SKILL.md) |
 
-For discovery and example prompts, see [Use the agent skills](docs/how-to/use-agent-skills.md).
+Load only the skill needed. [Agent examples](docs/how-to/use-agent-skills.md) show
+how to keep the administrator, project administrator, and operator tasks scoped.
 
-## Start with explicit context
+## Use the selected context
 
-Run the wrapper from this repository root using the user's selected configuration.
-`deployment/example.json` is an offline example with account placeholders.
-Tutorial account/database/role names and screenshot results are historical examples,
-not deployment defaults. Do not print personal credentials or commit local credential
-files. Real local configurations belong in ignored paths; a GitHub deployment needs
-a reviewed, non-secret `deployment/dev.json` committed explicitly.
+Run from this repository root with the user's selected configuration.
+`deployment/example.json` is an offline corporate example with placeholders.
+Tutorial names are examples, not deployment defaults.
+Do not print credentials or commit local authentication files. Real local settings
+belong in ignored paths; GitHub needs a reviewed non-secret `deployment/dev.json`
+committed explicitly.
 
-Preview operations without `--apply` make no Snowflake connection. `wizard` writes
-a local config; applied commands perform cloud changes. Keep native object and
-model destinations separate. A deployment replaces all LIVE files, including
-artifacts needed by retry. Use the existing wrapper and preserve its verification.
+In split-role mode, `deployment_role`/`deployment_connection`/`deployment_user`
+select project administration. `role`/`connection`/`operator_user` select operation
+and the native profile. Keep the two custom roles independent. Source deployment
+requires `auto_compile: false` and refuses `--build`; operator execution follows.
+Administrator provisioning and ownership adoption are separate actions rather than
+runtime error workarounds.
 
-## Navigate efficiently
+Previews without `--apply` make no Snowflake connection. `wizard` writes a local
+config. Applied commands perform cloud changes and verify readback. All authenticated
+CLI invocations disable secondary roles. New service-user validation must use those
+users' own logins; changing an administrator's active role is insufficient.
 
-`scripts/dbt_native.py` contains configuration, packaging, wizard, deployment,
-migration, and execution. Tests live in `tests/test_dbt_native.py` and
-`tests/test_live_version.py`; workflows live in `.github/workflows/`.
-Use `rg` for text/path lookup and available symbol navigation for focused bodies.
-The maintain skill maps symbols and validation commands.
+Keep native and model destinations separate. Deployment replaces LIVE files,
+including retry artifacts. Use the existing wrappers and preserve their checks.
+Both GitHub jobs share concurrency; coordinate local writes to the same resources.
 
-Keep tutorials, task guides, reference, and explanation in their existing Diátaxis
-directories. Link canonical docs from skills instead of copying whole manuals.
-Skill instructions do not authorize publishing, cloud execution, or privilege changes;
-use the task's existing authorization and report offline checks separately from live results.
+## Navigate and maintain
+
+`scripts/dbt_native.py` contains configuration, packaging, wizard, project access,
+deployment, migration, and execution. `scripts/dbt_admin.py` contains provisioning.
+Tests are under `tests/`; workflows are under `.github/workflows/`. Use `rg` for
+text/path lookup and available symbol navigation for focused bodies. The maintain
+skill maps entrypoints and validation commands.
+
+Keep tutorials, task guides, reference, and explanation in their Diátaxis directories.
+Keep internal plans, peer-review notes, validation reports, test-account details, and
+execution transcripts in ignored `.local/` storage. Do not add them to public docs.
+Put reusable user guidance in its canonical page instead of linking a work diary.
+Link canonical administrator setup instead of copying database/role/user grant SQL
+into operating guides. Skills do not authorize publication, cloud execution, or
+privilege changes; use the existing task authorization and distinguish offline,
+dedicated-user CLI, GitHub OIDC, and human-browser results.

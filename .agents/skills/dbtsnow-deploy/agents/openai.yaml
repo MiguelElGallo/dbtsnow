@@ -1,3 +1,3 @@
 interface:
-  display_name: "Deploy native dbt with dbtsnow"
-  short_description: "Prepare and verify dbtsnow project deployments"
+  display_name: "Administer and deploy dbt projects"
+  short_description: "Deploy source, hand off access, and migrate projects"
