@@ -1,14 +1,50 @@
+---
+icon: lucide/house
+hide:
+  - navigation
+  - toc
+---
+
 # Native dbt projects on Snowflake
 
-Deploy reviewed dbt source and run models through separate Snowflake identities. Start with your responsibility, or follow the tutorials to learn the complete setup.
+Deploy a native Snowflake dbt project, then build and check your models. Separate users handle account setup, project updates, and daily runs.
 
-| Responsibility | Start here |
-| --- | --- |
-| Snowflake administrator: databases, schemas, roles, users, and grants | [Prepare databases, roles, and users](how-to/admin-setup.md) |
-| dbt project administrator: source deployment, project ownership, and access | [Deploy and hand off access](how-to/project-admin.md) |
-| dbt operator: builds, recovery, sources, and logs | [Run and retry](how-to/run-and-retry.md) · [Inspect runs](how-to/inspect-runs.md) |
+[Preview the example](tutorials/preview-the-example.md){ .md-button .md-button--primary }
+[Follow the setup lesson](tutorials/first-deployment.md){ .md-button }
 
-The Snowflake admin gives the project team access for two separate jobs:
+## Choose your responsibility
+
+<div class="grid cards role-cards" markdown>
+
+-   :lucide-shield-check:{ .lg .middle } **Snowflake administrator**
+
+    ---
+
+    Prepare databases, schemas, roles, users, and access before the project team starts.
+
+    [Prepare access](how-to/admin-setup.md)
+
+-   :lucide-upload:{ .lg .middle } **Project administrator**
+
+    ---
+
+    Upload reviewed project updates, own the project, and give the operator access.
+
+    [Deploy and hand off access](how-to/project-admin.md)
+
+-   :lucide-play:{ .lg .middle } **Operator**
+
+    ---
+
+    Build models, retry failed runs, and check the results using your own login.
+
+    [Run and retry](how-to/run-and-retry.md)
+
+</div>
+
+## How the setup works
+
+The Snowflake administrator gives the project team access for two separate jobs:
 
 ```mermaid
 flowchart TD

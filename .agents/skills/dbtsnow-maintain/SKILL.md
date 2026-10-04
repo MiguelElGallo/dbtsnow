@@ -43,6 +43,12 @@ uv run python -m unittest discover -s tests -v
 uv run python scripts/dbt_native.py deploy --config deployment/example.json
 ```
 
+For documentation-site changes, run `uv sync --frozen --group docs`, then
+`uv run --frozen --group docs zensical build --clean --strict`. Check rendered links,
+icons, diagrams, search, and mobile/light/dark layouts. `zensical.toml` configures the
+site; `.github/workflows/docs.yml` validates PRs and publishes only from `main`.
+Keep generated `site/` output ignored and keep publication scoped to `docs/`.
+
 For workflow edits, run `actionlint` when available. Apply these gates to code/workflow changes; documentation-only changes need relevant links, examples, and skill metadata checks instead of unnecessary cloud runs. Report unavailable checks rather than calling them passed.
 
 Keep documentation in its Diátaxis home: `docs/tutorials/` for learning, `docs/how-to/` for tasks, `docs/reference/` for exact interfaces, `docs/explanation/` for rationale. Use short runnable steps and visible checkpoints as in the existing FastAPI-style guides. Keep internal plans, peer-review notes, validation reports, account/query details, and transcripts in ignored `.local/` storage; do not publish them as documentation. Put reusable guidance in its canonical page and link that page. Request independent review for material behavior or documentation changes when the task calls for it.

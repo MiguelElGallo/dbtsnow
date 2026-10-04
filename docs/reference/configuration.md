@@ -1,3 +1,7 @@
+---
+icon: lucide/sliders-horizontal
+---
+
 # Configuration reference
 
 [Documentation](../index.md) · [Command reference](commands.md)
@@ -76,7 +80,7 @@ DEV_DBT_PRJ.ANALYTICS
 
 dbt model settings or custom schema macros can produce other destinations. The native profile's base destination does not override model SQL or those dbt settings. See [first deployment](../tutorials/first-deployment.md).
 
-The complete [example configuration](../../deployment/example.json) uses `"source": "../example"`. Stored at `deployment/example.json`, that path points to the repository's `example` directory, even when a later command runs from another directory.
+The complete [example configuration](https://github.com/MiguelElGallo/dbtsnow/blob/main/deployment/example.json) uses `"source": "../example"`. Stored at `deployment/example.json`, that path points to the repository's `example` directory, even when a later command runs from another directory.
 
 ## Wizard inference and output
 

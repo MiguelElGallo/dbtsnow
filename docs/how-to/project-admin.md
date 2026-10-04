@@ -1,3 +1,7 @@
+---
+icon: lucide/upload
+---
+
 # Project administrator: deploy and hand off access
 
 [Documentation](../index.md) · [Administrator setup](admin-setup.md)

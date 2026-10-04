@@ -1,3 +1,7 @@
+---
+icon: lucide/scan-eye
+---
+
 # Preview the example
 
 [Documentation](../index.md) · Next: [Deploy your first project](first-deployment.md)

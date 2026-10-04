@@ -1,3 +1,7 @@
+---
+icon: lucide/git-compare
+---
+
 # Operator: build models changed from a baseline
 
 [Documentation](../index.md)

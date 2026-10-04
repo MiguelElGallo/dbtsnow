@@ -1,3 +1,7 @@
+---
+icon: lucide/logs
+---
+
 # Operator: inspect runs and logs
 
 [Documentation](../index.md)

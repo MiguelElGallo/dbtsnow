@@ -1,0 +1,94 @@
+[project]
+site_name = "dbtsnow"
+site_description = "Deploy and run native Snowflake dbt projects with clear responsibilities."
+site_url = "https://miguelelgallo.github.io/dbtsnow/"
+repo_url = "https://github.com/MiguelElGallo/dbtsnow"
+repo_name = "MiguelElGallo/dbtsnow"
+edit_uri = "edit/main/docs/"
+docs_dir = "docs"
+site_dir = "site"
+extra_css = ["stylesheets/extra.css"]
+nav = [
+  { "Start here" = "index.md" },
+  { "Tutorials" = [
+    { "Preview the example" = "tutorials/preview-the-example.md" },
+    { "Your first deployment" = "tutorials/first-deployment.md" },
+  ] },
+  { "How-to guides" = [
+    { "Administrator setup" = "how-to/admin-setup.md" },
+    { "Project administration" = "how-to/project-admin.md" },
+    { "GitHub workflows" = "how-to/github-actions.md" },
+    { "Run and retry" = "how-to/run-and-retry.md" },
+    { "Inspect runs and logs" = "how-to/inspect-runs.md" },
+    { "Build changed models" = "how-to/state-build.md" },
+    { "Check source freshness" = "how-to/check-source-freshness.md" },
+    { "Migrate to LIVE" = "how-to/migrate-to-live.md" },
+    { "Use agent skills" = "how-to/use-agent-skills.md" },
+  ] },
+  { "Reference" = [
+    { "Configuration" = "reference/configuration.md" },
+    { "Commands" = "reference/commands.md" },
+  ] },
+  { "Explanation" = [
+    { "Roles and the handoff" = "explanation/role-separation.md" },
+    { "Deployment choices" = "explanation/deployment-choice.md" },
+    { "LIVE and recovery" = "explanation/live-version.md" },
+  ] },
+]
+
+[project.theme]
+custom_dir = "overrides"
+variant = "modern"
+language = "en"
+font = false
+favicon = "assets/favicon.svg"
+features = [
+  "navigation.tabs",
+  "navigation.sections",
+  "navigation.path",
+  "navigation.top",
+  "navigation.footer",
+  "toc.follow",
+  "search.highlight",
+  "content.code.copy",
+  "content.action.view",
+]
+
+[project.theme.icon]
+logo = "lucide/snowflake"
+repo = "fontawesome/brands/github"
+menu = "lucide/menu"
+search = "lucide/search"
+previous = "lucide/arrow-left"
+next = "lucide/arrow-right"
+view = "lucide/code"
+
+[[project.theme.palette]]
+media = "(prefers-color-scheme: light)"
+scheme = "default"
+primary = "indigo"
+accent = "teal"
+toggle.icon = "lucide/moon"
+toggle.name = "Switch to dark mode"
+
+[[project.theme.palette]]
+media = "(prefers-color-scheme: dark)"
+scheme = "slate"
+primary = "indigo"
+accent = "teal"
+toggle.icon = "lucide/sun"
+toggle.name = "Switch to light mode"
+
+[project.markdown_extensions.attr_list]
+[project.markdown_extensions.md_in_html]
+[project.markdown_extensions.toc]
+permalink = true
+[project.markdown_extensions.pymdownx.emoji]
+emoji_generator = "zensical.extensions.emoji.to_svg"
+emoji_index = "zensical.extensions.emoji.twemoji"
+[project.markdown_extensions.pymdownx.highlight]
+[project.markdown_extensions.pymdownx.inlinehilite]
+[project.markdown_extensions.pymdownx.superfences]
+custom_fences = [
+  { name = "mermaid", class = "mermaid", format = "pymdownx.superfences.fence_code_format" },
+]

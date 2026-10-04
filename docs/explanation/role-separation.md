@@ -1,3 +1,7 @@
+---
+icon: lucide/users
+---
+
 # Why deployment and operation use different roles
 
 [Documentation](../index.md)
@@ -17,7 +21,7 @@ These names are examples. The wrappers use the account, roles, users, and destin
 Setup comes first, then the project upload, then execution. Each person signs in with their own user. The arrows show the order of the work:
 
 ```mermaid
-flowchart LR
+flowchart TD
     A["Snowflake admin<br/>Sets up access"] -->|Setup ready| P["Project admin<br/>Uploads the project"]
     P -->|Project ready| O["Operator<br/>Runs it and checks results"]
 ```

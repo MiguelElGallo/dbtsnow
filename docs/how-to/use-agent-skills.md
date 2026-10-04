@@ -1,3 +1,7 @@
+---
+icon: lucide/bot
+---
+
 # Use the repository's agent skills
 
 [Documentation](../index.md)
@@ -8,16 +12,16 @@ Choose a repository skill to give an agent the right starting point. The skills 
 
 Open a clone of `dbtsnow` as the agent's working directory. Codex discovers `.agents/skills` from the current directory through its repository ancestors. Use `/skills` or type `$` to select a skill; restart Codex if a newly added skill does not appear. See [Codex skill discovery](https://learn.chatgpt.com/docs/build-skills).
 
-Other agent tools can read [AGENTS.md](../../AGENTS.md) and the relevant `SKILL.md` directly. Automatic discovery depends on the client. Keep the skills with this checkout because their links and commands depend on its docs and code.
+Other agent tools can read [AGENTS.md](https://github.com/MiguelElGallo/dbtsnow/blob/main/AGENTS.md) and the relevant `SKILL.md` directly. Automatic discovery depends on the client. Keep the skills with this checkout because their links and commands depend on its docs and code.
 
 ## Choose one task
 
 | Skill | Use it for |
 | --- | --- |
-| [`dbtsnow-admin`](../../.agents/skills/dbtsnow-admin/SKILL.md) | Administrator provisioning, independent roles/users, authentication handoff |
-| [`dbtsnow-deploy`](../../.agents/skills/dbtsnow-deploy/SKILL.md) | Project administrator configuration, source delivery, project access, migration, deployment workflow |
-| [`dbtsnow-operate`](../../.agents/skills/dbtsnow-operate/SKILL.md) | Operator runs, retry, logs, state, freshness, operation workflow |
-| [`dbtsnow-maintain`](../../.agents/skills/dbtsnow-maintain/SKILL.md) | Code navigation, changes, tests, documentation, review |
+| [`dbtsnow-admin`](https://github.com/MiguelElGallo/dbtsnow/blob/main/.agents/skills/dbtsnow-admin/SKILL.md) | Administrator provisioning, independent roles/users, authentication handoff |
+| [`dbtsnow-deploy`](https://github.com/MiguelElGallo/dbtsnow/blob/main/.agents/skills/dbtsnow-deploy/SKILL.md) | Project administrator configuration, source delivery, project access, migration, deployment workflow |
+| [`dbtsnow-operate`](https://github.com/MiguelElGallo/dbtsnow/blob/main/.agents/skills/dbtsnow-operate/SKILL.md) | Operator runs, retry, logs, state, freshness, operation workflow |
+| [`dbtsnow-maintain`](https://github.com/MiguelElGallo/dbtsnow/blob/main/.agents/skills/dbtsnow-maintain/SKILL.md) | Code navigation, changes, tests, documentation, review |
 
 For an administrator setup preview, supply the selected configuration and the connection intended for a later apply:
 

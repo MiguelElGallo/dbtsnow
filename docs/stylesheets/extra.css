@@ -1,0 +1,81 @@
+/* Keep the native theme's layout, with readable colors in both palettes. */
+[data-md-color-scheme="default"][data-md-color-primary="indigo"] {
+  --md-primary-fg-color: #3949ab;
+  --md-primary-fg-color--light: #5c6bc0;
+  --md-primary-fg-color--dark: #283593;
+  --md-primary-bg-color: #ffffff;
+  --md-primary-bg-color--light: #ffffffb3;
+  --md-typeset-a-color: #3949ab;
+  --md-accent-fg-color: #0f766e;
+  --md-accent-fg-color--transparent: #0f766e1a;
+  --md-accent-bg-color: #ffffff;
+  --md-accent-bg-color--light: #ffffffb3;
+}
+
+[data-md-color-scheme="slate"][data-md-color-primary="indigo"] {
+  --md-primary-fg-color: #a5b4fc;
+  --md-primary-fg-color--light: #c7d2fe;
+  --md-primary-fg-color--dark: #818cf8;
+  --md-primary-bg-color: #16171a;
+  --md-primary-bg-color--light: #16171ab3;
+  --md-typeset-a-color: #a5b4fc;
+  --md-accent-fg-color: #5eead4;
+  --md-accent-fg-color--transparent: #5eead41a;
+  --md-accent-bg-color: #16171a;
+  --md-accent-bg-color--light: #16171ab3;
+}
+
+.md-typeset .md-button:hover,
+.md-typeset .md-button:focus {
+  color: var(--md-accent-bg-color);
+  background-color: var(--md-accent-fg-color);
+  opacity: 1;
+}
+
+.md-typeset .role-cards {
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  gap: 1rem;
+  margin-block: 1.25rem 2rem;
+}
+
+.md-typeset .role-cards > ul > li {
+  padding: 1.15rem;
+  border-radius: 0.75rem;
+}
+
+.md-typeset .role-cards .twemoji {
+  color: var(--md-primary-fg-color);
+}
+
+.md-typeset .role-cards > ul > li > p:last-child a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
+  font-weight: 600;
+}
+
+.md-typeset a:hover {
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+}
+
+.md-typeset a:focus-visible,
+.md-header a:focus-visible,
+.md-tabs__link:focus-visible {
+  outline: 3px solid var(--md-accent-fg-color);
+  outline-offset: 4px;
+  border-radius: 0.2rem;
+}
+
+@media (max-width: 34rem) {
+  .md-typeset .role-cards {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .md-typeset .role-cards > ul > li {
+    transition: none;
+    transform: none;
+  }
+}

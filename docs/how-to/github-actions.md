@@ -1,3 +1,7 @@
+---
+icon: lucide/workflow
+---
+
 # Deploy and operate with separate GitHub identities
 
 [Documentation](../index.md) · [Role responsibilities](../explanation/role-separation.md)
