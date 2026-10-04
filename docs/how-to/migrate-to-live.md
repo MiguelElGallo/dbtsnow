@@ -1,3 +1,7 @@
+---
+icon: lucide/move-right
+---
+
 # Project administrator: migrate a numbered project to LIVE
 
 [Documentation](../index.md)

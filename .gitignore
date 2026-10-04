@@ -10,3 +10,5 @@ dbt_packages/
 .env
 *.pem
 *.p8
+site/
+.cache/

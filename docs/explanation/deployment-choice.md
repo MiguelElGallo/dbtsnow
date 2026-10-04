@@ -1,3 +1,7 @@
+---
+icon: lucide/route
+---
+
 # Why use Snowflake CLI and GitHub Actions?
 
 [Documentation](../index.md)

@@ -1,3 +1,7 @@
+---
+icon: lucide/terminal
+---
+
 # Command reference
 
 [Documentation](../index.md) · [Configuration reference](configuration.md)

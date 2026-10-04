@@ -1,3 +1,7 @@
+---
+icon: lucide/history
+---
+
 # Why LIVE changes deployment and recovery
 
 [Documentation](../index.md)

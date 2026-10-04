@@ -1,3 +1,7 @@
+---
+icon: lucide/play
+---
+
 # Operator: run a project and retry a failed build
 
 [Documentation](../index.md)

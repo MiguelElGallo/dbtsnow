@@ -1,3 +1,7 @@
+---
+icon: lucide/rocket
+---
+
 # Deploy your first project through three responsibilities
 
 [Documentation](../index.md) · Previous: [Preview the example](preview-the-example.md)

@@ -1,3 +1,7 @@
+---
+icon: lucide/clock
+---
+
 # Operator: check source freshness
 
 [Documentation](../index.md)

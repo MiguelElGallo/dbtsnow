@@ -1,3 +1,7 @@
+---
+icon: lucide/shield-check
+---
+
 # Administrator: prepare databases, roles, and users
 
 [Documentation](../index.md) · [Role responsibilities](../explanation/role-separation.md)
