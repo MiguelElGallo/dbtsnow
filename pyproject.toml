@@ -1,6 +1,6 @@
 [project]
 name = "dbtsnow"
-version = "0.1.0"
+version = "0.2.0"
 description = "A guided deployment template for native Snowflake dbt projects"
 requires-python = ">=3.11"
 dependencies = ["PyYAML==6.0.3"]
