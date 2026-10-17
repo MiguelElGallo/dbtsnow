@@ -54,10 +54,11 @@ flowchart TD
 
 ## Tutorials
 
-Follow these lessons in order to preview a project, deploy it, and build a view.
+Start with the first two lessons to preview a project, deploy it, and build a view. Then explore tags through transformed tables.
 
 1. [Preview the example](tutorials/preview-the-example.md) — inspect a model and create an offline deployment plan.
 2. [Deploy your first project](tutorials/first-deployment.md) — set up fresh resources and use separate project administrator and operator logins.
+3. [Test automatic tag propagation](tutorials/tag-propagation.md) — rename, transform, and concatenate columns across three permanent tables, then check their tags.
 
 ## How-to guides
 

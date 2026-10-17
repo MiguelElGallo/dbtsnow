@@ -13,6 +13,7 @@ nav = [
   { "Tutorials" = [
     { "Preview the example" = "tutorials/preview-the-example.md" },
     { "Your first deployment" = "tutorials/first-deployment.md" },
+    { "Automatic tag propagation" = "tutorials/tag-propagation.md" },
   ] },
   { "How-to guides" = [
     { "Administrator setup" = "how-to/admin-setup.md" },
