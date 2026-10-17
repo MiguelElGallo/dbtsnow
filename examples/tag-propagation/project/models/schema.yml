@@ -1,0 +1,51 @@
+version: 2
+
+sources:
+  - name: tag_propagation_fixture
+    description: Synthetic source tagged by sql/setup.sql before the dbt build.
+    database: "{{ var('tag_prop_source_database', target.database) }}"
+    schema: "{{ var('tag_prop_source_schema', target.schema) }}"
+    tables:
+      - name: control
+        identifier: "{{ var('tag_prop_source_table', 'TAG_PROP_CONTROL') }}"
+        columns:
+          - name: id
+            description: Numeric identifier with its own source-column lineage tag.
+          - name: loaded_at
+            description: Timestamp with a separate source-column lineage tag.
+
+models:
+  - name: tag_prop_01_renamed
+    description: First permanent table tests propagation through column aliases.
+    columns:
+      - name: renamed_id
+        description: Original identifier with a different column name.
+        data_tests: [not_null]
+      - name: renamed_loaded_at
+        description: Original timestamp with a different column name.
+  - name: tag_prop_02_transformed
+    description: Second permanent table tests arithmetic, text conversion, and date functions.
+    columns:
+      - name: adjusted_id
+        description: Identifier increased by 1000.
+        data_tests: [not_null]
+      - name: id_text
+        description: Uppercase label derived from the identifier.
+      - name: shifted_loaded_at
+        description: Source timestamp shifted forward by one hour.
+      - name: loaded_date
+        description: Source timestamp converted to a date.
+  - name: tag_prop_03_concatenated
+    description: Third permanent table combines two tagged column lineages.
+    columns:
+      - name: final_id
+        description: Identifier from the second table under a new name.
+      - name: record_label
+        description: String combining identifier-derived text and the shifted timestamp.
+        data_tests: [not_null]
+      - name: loaded_at_text
+        description: Shifted timestamp formatted as text.
+      - name: event_date
+        description: Source date under another new column name.
+      - name: constant_marker
+        description: Literal independent of source columns; a negative lineage control.

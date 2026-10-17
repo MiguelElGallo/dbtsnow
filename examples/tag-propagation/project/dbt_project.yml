@@ -1,0 +1,10 @@
+name: tag_propagation_example
+version: '1.0.0'
+config-version: 2
+profile: tag_propagation_example
+model-paths: [models]
+
+models:
+  tag_propagation_example:
+    +materialized: table
+    +transient: false

@@ -27,6 +27,7 @@ This preview makes no Snowflake connection. [Deploy your first project](https://
 | --- | --- |
 | Prepare corporate access | [Administrator setup](https://miguelelgallo.github.io/dbtsnow/how-to/admin-setup/) · [Role responsibilities](https://miguelelgallo.github.io/dbtsnow/explanation/role-separation/) |
 | Learn with a small example | [Preview](https://miguelelgallo.github.io/dbtsnow/tutorials/preview-the-example/) · [First deployment](https://miguelelgallo.github.io/dbtsnow/tutorials/first-deployment/) |
+| Test tags through transformed tables | [Automatic tag propagation](https://miguelelgallo.github.io/dbtsnow/tutorials/tag-propagation/) |
 | Deploy or operate from GitHub | [Two workflows and OIDC identities](https://miguelelgallo.github.io/dbtsnow/how-to/github-actions/) |
 | Migrate an existing numbered object | [Migrate to LIVE](https://miguelelgallo.github.io/dbtsnow/how-to/migrate-to-live/) |
 | Execute or recover a run | [Build and retry](https://miguelelgallo.github.io/dbtsnow/how-to/run-and-retry/) · [Logs](https://miguelelgallo.github.io/dbtsnow/how-to/inspect-runs/) |

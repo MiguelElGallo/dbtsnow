@@ -1,0 +1,22 @@
+{
+  "source": "./project",
+  "connection": null,
+  "account": "MYORG-MYACCOUNT",
+  "database": "MY_PROJECT_DATABASE",
+  "object_schema": "MY_PROJECT_SCHEMA",
+  "project": "TAG_PROPAGATION_EXAMPLE",
+  "role": "DBT_OPERATOR",
+  "warehouse": "MY_WAREHOUSE",
+  "model_database": "MY_MODEL_DATABASE",
+  "model_schema": "MY_MODEL_SCHEMA",
+  "profile": "tag_propagation_example",
+  "target": "dev",
+  "dbt_version": "2.0.0",
+  "external_access_integrations": [],
+  "auto_compile": false,
+  "default_writeback": false,
+  "deployment_role": "DBT_PROJECT_ADMIN",
+  "deployment_connection": null,
+  "operator_user": "DBT_OPERATOR_SVC",
+  "deployment_user": "DBT_PROJECT_ADMIN_SVC"
+}
